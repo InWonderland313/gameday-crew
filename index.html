@@ -285,7 +285,7 @@ header img{
   <div class="card">
     <h3>Team Details</h3>
     <label>Team name</label>
-    <input id="teamNameInput" placeholder="e.g. Belmont U14s">
+    <input id="teamNameInput" placeholder="e.g. U14 Lions or U10 Blue">
     <div class="row">
       <div><label>Season</label><input id="seasonInput" type="number" min="2020" max="2100"></div>
       <div><label>Age group / division</label><input id="divisionInput" placeholder="e.g. U14 Div 7"></div>
@@ -325,7 +325,7 @@ const defaultPlayers = [
   {id:3,name:"Cooper Brown",number:""}
 ];
 
-let data = JSON.parse(localStorage.getItem("juniorFootyManagerV3") || "null") || {
+let data = JSON.parse(localStorage.getItem("gameDayCrewDataV1") || "null") || {
   team: {name:"Team Name", season:2026, division:""},
   players: defaultPlayers,
   games: {},
@@ -337,7 +337,7 @@ let data = JSON.parse(localStorage.getItem("juniorFootyManagerV3") || "null") ||
 };
 
 function persist() {
-  localStorage.setItem("juniorFootyManagerV3", JSON.stringify(data));
+  localStorage.setItem("gameDayCrewDataV1", JSON.stringify(data));
 }
 
 document.querySelectorAll(".tab").forEach(btn=>btn.addEventListener("click",()=>{
