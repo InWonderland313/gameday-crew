@@ -160,6 +160,18 @@ header img{
 
   <div class="card">
     <div class="section-title">
+      <div>
+        <div class="muted">MILESTONE WATCH</div>
+        <h2 style="margin:3px 0 0">Career Games</h2>
+        <div class="muted">Players closest to their next 50-game milestone.</div>
+      </div>
+      <div style="font-size:32px">🏅</div>
+    </div>
+    <div id="milestoneWatch" style="margin-top:10px"></div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">
       <h2 style="margin:0">Team List</h2>
       <span class="badge good" id="playerCountBadge">0 players</span>
     </div>
@@ -184,6 +196,18 @@ header img{
     </div>
     <label>Opponent</label>
     <input id="opponentInput" placeholder="e.g. Grovedale">
+
+    <div style="margin-top:16px">
+      <button type="button" class="collapse-header" onclick="toggleStatsSection('playedPlayersBody','playedPlayersArrow')">
+        <span><strong>Players who played</strong><span class="muted collapse-subtitle">Used to automatically update career games</span></span>
+        <span id="playedPlayersArrow" class="collapse-arrow">▼</span>
+      </button>
+      <div id="playedPlayersBody" class="collapse-body">
+        <p class="muted">Everyone is selected by default. Untick anyone who did not play.</p>
+        <div id="playedPlayersList"></div>
+      </div>
+      <div id="playedPlayersSummary" class="bench-summary" style="margin-top:8px"></div>
+    </div>
 
     <div style="margin-top:18px">
       <div class="section-title">
@@ -279,37 +303,47 @@ header img{
 <section id="settings" class="panel">
   <div class="card">
     <h2>Settings</h2>
-    <p class="muted">Edit team details, players and award types here.</p>
+    <p class="muted">Set up your team and customise the awards your club uses.</p>
+    <div class="row" style="margin-top:12px">
+      <button class="primary" onclick="showSettingsPage('teamSetupPage')">Team Setup</button>
+      <button class="secondary" onclick="showSettingsPage('awardSetupPage')">Award Setup</button>
+    </div>
   </div>
 
-  <div class="card">
-    <h3>Team Details</h3>
-    <label>Team name</label>
-    <input id="teamNameInput" placeholder="e.g. U14 Lions or U10 Blue">
-    <div class="row">
-      <div><label>Season</label><input id="seasonInput" type="number" min="2020" max="2100"></div>
-      <div><label>Age group / division</label><input id="divisionInput" placeholder="e.g. U14 Div 7"></div>
+  <div id="teamSetupPage" class="settings-page">
+    <div class="card">
+      <h3>Team Setup</h3>
+      <label>Team name</label><input id="teamNameInput" placeholder="e.g. U14 Lions or U10 Blue">
+      <div class="row">
+        <div><label>Season</label><input id="seasonInput" type="number" min="2020" max="2100"></div>
+        <div><label>Age group / division</label><input id="divisionInput" placeholder="e.g. U14 Div 7"></div>
+      </div>
+      <button class="primary" style="width:100%;margin-top:12px" onclick="saveTeam()">Save team details</button>
     </div>
-    <button class="primary" style="width:100%;margin-top:12px" onclick="saveTeam()">Save team details</button>
+
+    <div class="card">
+      <h3>Team List</h3>
+      <p class="muted">Career games is the player's total when you first add them. GameDay Crew adds future games automatically when you mark them as played.</p>
+      <div class="row" style="align-items:flex-end">
+        <div style="flex:2"><label>Player name</label><input id="newName" placeholder="Player name"></div>
+        <div><label>No.</label><input id="newNumber" placeholder="No."></div>
+        <div><label>Career games</label><input id="newCareerGames" type="number" min="0" placeholder="0"></div>
+        <button class="primary smallbtn" onclick="addPlayer()">Add</button>
+      </div>
+      <div id="settingsPlayerList" style="margin-top:10px"></div>
+    </div>
   </div>
 
-  <div class="card">
-    <h3>Players</h3>
-    <div class="row">
-      <input id="newName" placeholder="Player name">
-      <input id="newNumber" placeholder="No." style="max-width:90px">
-      <button class="primary smallbtn" onclick="addPlayer()">Add</button>
+  <div id="awardSetupPage" class="settings-page" style="display:none">
+    <div class="card">
+      <h3>Award Setup</h3>
+      <p class="muted">Add, rename or remove the award types your team gives out.</p>
+      <div class="row">
+        <input id="newAwardName" placeholder="e.g. Coaches Award">
+        <button class="primary smallbtn" onclick="addAwardType()">Add</button>
+      </div>
+      <div id="awardTypeManager" style="margin-top:10px"></div>
     </div>
-    <div id="settingsPlayerList" style="margin-top:10px"></div>
-  </div>
-
-  <div class="card">
-    <h3>Award Types</h3>
-    <div class="row">
-      <input id="newAwardName" placeholder="e.g. Coaches Award">
-      <button class="primary smallbtn" onclick="addAwardType()">Add</button>
-    </div>
-    <div id="awardTypeManager" style="margin-top:10px"></div>
   </div>
 </section>
 
@@ -325,7 +359,7 @@ const defaultPlayers = [
   {id:3,name:"Cooper Brown",number:""}
 ];
 
-let data = JSON.parse(localStorage.getItem("gameDayCrewDataV1") || "null") || {
+let data = JSON.parse(localStorage.getItem("gameDayCrewDataV2") || "null") || {
   team: {name:"Team Name", season:2026, division:""},
   players: defaultPlayers,
   games: {},
@@ -336,8 +370,10 @@ let data = JSON.parse(localStorage.getItem("gameDayCrewDataV1") || "null") || {
   awardEvents: []
 };
 
+data.players.forEach(p=>{ if(typeof p.careerGames!=="number") p.careerGames=0; });
+
 function persist() {
-  localStorage.setItem("gameDayCrewDataV1", JSON.stringify(data));
+  localStorage.setItem("gameDayCrewDataV2", JSON.stringify(data));
 }
 
 document.querySelectorAll(".tab").forEach(btn=>btn.addEventListener("click",()=>{
@@ -353,6 +389,12 @@ function toggleTeamEdit() {
   el.style.display=el.style.display==="none"?"block":"none";
 }
 
+function showSettingsPage(pageId) {
+  document.querySelectorAll(".settings-page").forEach(p=>p.style.display="none");
+  const page=document.getElementById(pageId);
+  if(page) page.style.display="block";
+}
+
 function saveTeam() {
   data.team.name=document.getElementById("teamNameInput").value.trim() || "Your Team";
   data.team.season=Number(document.getElementById("seasonInput").value || 2026);
@@ -364,22 +406,24 @@ function saveTeam() {
 function addPlayer() {
   const name=document.getElementById("newName").value.trim();
   const number=document.getElementById("newNumber").value.trim();
+  const careerGames=Math.max(0,Number(document.getElementById("newCareerGames").value||0));
   if(!name) return alert("Add a player name first.");
-  data.players.push({id:Date.now(),name,number});
+  data.players.push({id:Date.now(),name,number,careerGames});
   document.getElementById("newName").value="";
   document.getElementById("newNumber").value="";
+  document.getElementById("newCareerGames").value="";
   persist(); renderAll();
 }
 
 function editPlayer(id) {
   const p=data.players.find(x=>x.id===id);
   if(!p) return;
-  const newName=prompt("Player name:",p.name);
-  if(newName===null) return;
-  const newNumber=prompt("Jumper number:",p.number||"");
-  if(newNumber===null) return;
+  const newName=prompt("Player name:",p.name); if(newName===null) return;
+  const newNumber=prompt("Jumper number:",p.number||""); if(newNumber===null) return;
+  const newCareer=prompt("Career games at setup:",Number(p.careerGames||0)); if(newCareer===null) return;
   p.name=newName.trim()||p.name;
   p.number=newNumber.trim();
+  p.careerGames=Math.max(0,Number(newCareer||0));
   persist(); renderAll();
 }
 
@@ -396,18 +440,14 @@ let draftGame = {
   date:"",
   opponent:"",
   playerStats:{},
+  played:data.players.map(p=>Number(p.id)),
   benches:{q1:[],q2:[],q3:[],q4:[]}
 };
 
 function blankDraft() {
-  return {
-    id:null,
-    round:"",
-    date:"",
-    opponent:"",
-    playerStats:{},
-    benches:{q1:[],q2:[],q3:[],q4:[]}
-  };
+  return {id:null,round:"",date:"",opponent:"",playerStats:{},
+    played:data.players.map(p=>Number(p.id)),
+    benches:{q1:[],q2:[],q3:[],q4:[]}};
 }
 
 function ensureDraftPlayerStat(playerId) {
@@ -431,6 +471,10 @@ function syncDraftBasics() {
   if(oppEl) draftGame.opponent=oppEl.value.trim();
 }
 
+function syncPlayedDraft() {
+  draftGame.played=[...document.querySelectorAll(".playedBox:checked")].map(x=>Number(x.value));
+}
+
 function syncBenchDraft() {
   ["q1","q2","q3","q4"].forEach(q=>{
     const boxes=[...document.querySelectorAll(`.benchBox[data-quarter="${q}"]:checked`)];
@@ -440,6 +484,7 @@ function syncBenchDraft() {
 
 function saveGame() {
   syncDraftBasics();
+  syncPlayedDraft();
   syncBenchDraft();
 
   if(!draftGame.round) return alert("Enter the round number.");
@@ -471,6 +516,7 @@ function editGame(id) {
   editingGameId=id;
   draftGame=JSON.parse(JSON.stringify(game));
   if(!draftGame.playerStats) draftGame.playerStats={};
+  if(!Array.isArray(draftGame.played)) draftGame.played=data.players.map(p=>Number(p.id));
   if(!draftGame.benches) draftGame.benches={q1:[],q2:[],q3:[],q4:[]};
   ["q1","q2","q3","q4"].forEach(q=>{if(!draftGame.benches[q]) draftGame.benches[q]=[]});
   renderAll();
@@ -503,6 +549,20 @@ function totalsForPlayer(id) {
   return {goals,behinds,points:goals*6+behinds};
 }
 
+function trackedGamesPlayed(id) {
+  return (data.gameRecords||[]).reduce((count,g)=>{
+    const played=Array.isArray(g.played)?g.played.map(Number):data.players.map(p=>Number(p.id));
+    return count+(played.includes(Number(id))?1:0);
+  },0);
+}
+function careerGamesForPlayer(id) {
+  const p=data.players.find(x=>Number(x.id)===Number(id));
+  return Number(p?.careerGames||0)+trackedGamesPlayed(id);
+}
+function nextMilestone(total) {
+  return total<50?50:(Math.floor(total/50)+1)*50;
+}
+
 function benchStartsForPlayer(id) {
   let count=0;
   (data.gameRecords||[]).forEach(g=>{
@@ -525,6 +585,7 @@ function migrateOldGamesIfNeeded() {
         date:g.date||"",
         opponent:g.opponent||"",
         playerStats:g.playerStats||{},
+        played:data.players.map(p=>Number(p.id)),
         benches:{q1:[],q2:[],q3:[],q4:[]}
       });
     });
@@ -621,6 +682,17 @@ function renderTeam() {
     document.getElementById("goldenBootMeta").textContent="The season leader will appear here.";
   }
 
+  const milestoneRanked=data.players.map(p=>{
+    const total=careerGamesForPlayer(p.id), next=nextMilestone(total);
+    return {player:p,total,next,away:next-total};
+  }).sort((a,b)=>a.away-b.away || b.total-a.total);
+  const close=milestoneRanked.filter(x=>x.away<=10).slice(0,5);
+  document.getElementById("milestoneWatch").innerHTML=close.length?close.map(x=>`
+    <div class="player-row">
+      <div class="player-name">${x.player.name}<div class="number">${x.total} career games • ${x.away} to ${x.next}</div></div>
+      <span class="badge warn">${x.next} games</span>
+    </div>`).join(""):'<div class="empty">No players are within 10 games of their next milestone.</div>';
+
   document.getElementById("playerList").innerHTML=data.players.length?data.players
     .sort((a,b)=>{
       const an=Number(a.number), bn=Number(b.number);
@@ -632,12 +704,14 @@ function renderTeam() {
         <div style="min-width:48px;font-weight:800;font-size:20px;color:var(--navy)">
           ${p.number ? "#"+p.number : "—"}
         </div>
-        <div class="player-name">${p.name}</div>
+        <div class="player-name">${p.name}<div class="number">${careerGamesForPlayer(p.id)} career games</div></div>
       </div>`).join(""):'<div class="empty">No players added yet.</div>';
 
   document.getElementById("settingsPlayerList").innerHTML=data.players.length?data.players.map(p=>`
     <div class="player-row">
-      <div class="player-name">${p.name} <span class="number">${p.number?"#"+p.number:""}</span></div>
+      <div class="player-name">${p.name} <span class="number">${p.number?"#"+p.number:""}</span>
+        <div class="number">${careerGamesForPlayer(p.id)} career games</div>
+      </div>
       <button class="secondary smallbtn" onclick="editPlayer(${p.id})">Edit</button>
       <button class="danger smallbtn" onclick="removePlayer(${p.id})">Remove</button>
     </div>`).join(""):'<div class="empty">No players added yet.</div>';
@@ -673,6 +747,14 @@ function renderStatsForm() {
     teamBehinds+=Number(s.behinds||0);
   });
   document.getElementById("teamScore").textContent=`${teamGoals}.${teamBehinds} (${teamGoals*6+teamBehinds})`;
+
+  const playedSelected=(draftGame.played||[]).map(Number);
+  document.getElementById("playedPlayersList").innerHTML=data.players.map(p=>`
+    <label class="award-check" style="padding:8px 0">
+      <span>${p.name} ${p.number?`<span class="number">#${p.number}</span>`:""}</span>
+      <input class="playedBox" type="checkbox" value="${p.id}" ${playedSelected.includes(Number(p.id))?"checked":""}>
+    </label>`).join("");
+  document.getElementById("playedPlayersSummary").textContent=`${playedSelected.length} of ${data.players.length} players selected`;
 
   document.getElementById("goalList").innerHTML=data.players.length?data.players.map(p=>{
     const s=(draftGame.playerStats||{})[p.id]||{goals:0,behinds:0};
@@ -742,7 +824,7 @@ function renderGamesList() {
     return `<div class="player-row" style="align-items:flex-start">
       <div class="player-name">
         Round ${g.round} vs ${g.opponent||"Opponent"}
-        <div class="number">${g.date||"No date"} • ${goals}.${behinds} (${goals*6+behinds})</div>
+        <div class="number">${g.date||"No date"} • ${goals}.${behinds} (${goals*6+behinds}) • ${(Array.isArray(g.played)?g.played.length:data.players.length)} played</div>
         <div class="number" style="margin-top:3px">${scorerNames.length ? "Goals: "+scorerNames.join(", ") : "No goals recorded"}</div>
       </div>
       <button class="secondary smallbtn" onclick="editGame('${g.id}')">Edit</button>
@@ -895,10 +977,16 @@ renderAll();
 document.addEventListener("change",e=>{
   if(e.target && e.target.classList.contains("benchBox")){
     const q=e.target.dataset.quarter;
-    syncBenchDraft();
-    renderStatsForm();
-    const menu=document.getElementById("benchMenu_"+q);
-    if(menu) menu.classList.add("open");
+    syncBenchDraft(); renderStatsForm();
+    const menu=document.getElementById("benchMenu_"+q); if(menu) menu.classList.add("open");
+  }
+  if(e.target && e.target.classList.contains("playedBox")){
+    const open=document.getElementById("playedPlayersBody")?.classList.contains("open");
+    syncPlayedDraft(); renderStatsForm();
+    if(open){
+      document.getElementById("playedPlayersBody")?.classList.add("open");
+      document.getElementById("playedPlayersArrow")?.classList.add("open");
+    }
   }
 });
 document.addEventListener("input",e=>{
