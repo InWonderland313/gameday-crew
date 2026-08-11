@@ -209,6 +209,8 @@ header img{
       <div id="playedPlayersSummary" class="bench-summary" style="margin-top:8px"></div>
     </div>
 
+    <div id="gameCaptainSection" style="margin-top:16px"></div>
+
     <div style="margin-top:18px">
       <div class="section-title">
         <h3 style="margin:0">Player scores</h3>
@@ -294,6 +296,12 @@ header img{
     <div id="awardPriorityList"></div>
   </div>
 
+  <div id="captainRotationCard" class="card" style="display:none">
+    <h3>Captain Rotation</h3>
+    <p class="muted">For U9, U10 and U12 teams, players who have never been captain are prioritised at the top.</p>
+    <div id="captainRotationList"></div>
+  </div>
+
   <div class="card">
     <h3>Award history</h3>
     <div id="awardHistory"></div>
@@ -316,8 +324,17 @@ header img{
       <label>Team name</label><input id="teamNameInput" placeholder="e.g. U14 Lions or U10 Blue">
       <div class="row">
         <div><label>Season</label><input id="seasonInput" type="number" min="2020" max="2100"></div>
-        <div><label>Age group / division</label><input id="divisionInput" placeholder="e.g. U14 Div 7"></div>
+        <div>
+          <label>Age group</label>
+          <select id="ageGroupInput" onchange="renderLeadershipSetup()">
+            <option value="U9">U9</option><option value="U10">U10</option><option value="U12">U12</option>
+            <option value="U14">U14</option><option value="U16">U16</option><option value="U18">U18</option>
+          </select>
+        </div>
       </div>
+      <label>Division / team label (optional)</label>
+      <input id="divisionInput" placeholder="e.g. Div 7, Blue, Red">
+      <div id="leadershipSetup" style="margin-top:14px"></div>
       <button class="primary" style="width:100%;margin-top:12px" onclick="saveTeam()">Save team details</button>
     </div>
 
@@ -332,6 +349,12 @@ header img{
       </div>
       <div id="settingsPlayerList" style="margin-top:10px"></div>
     </div>
+  </div>
+
+  <div class="card">
+    <h3>Export Data</h3>
+    <p class="muted">Create a printable season report with team details, player stats, games, awards, milestones and interchange data.</p>
+    <button class="primary" style="width:100%" onclick="exportSeasonReport()">Export Season Report / PDF</button>
   </div>
 
   <div id="awardSetupPage" class="settings-page" style="display:none">
@@ -359,8 +382,8 @@ const defaultPlayers = [
   {id:3,name:"Cooper Brown",number:""}
 ];
 
-let data = JSON.parse(localStorage.getItem("gameDayCrewDataV2") || "null") || {
-  team: {name:"Team Name", season:2026, division:""},
+let data = JSON.parse(localStorage.getItem("gameDayCrewDataV4") || "null") || {
+  team: {name:"Team Name", season:2026, ageGroup:"U14", division:"", captainIds:[], viceCaptainIds:[]},
   players: defaultPlayers,
   games: {},
   awardTypes: [
@@ -371,9 +394,16 @@ let data = JSON.parse(localStorage.getItem("gameDayCrewDataV2") || "null") || {
 };
 
 data.players.forEach(p=>{ if(typeof p.careerGames!=="number") p.careerGames=0; });
+if(!data.team.ageGroup) data.team.ageGroup="U14";
+if(!Array.isArray(data.team.captainIds)){
+  data.team.captainIds=data.team.captainId ? [Number(data.team.captainId)] : [];
+}
+if(!Array.isArray(data.team.viceCaptainIds)){
+  data.team.viceCaptainIds=data.team.viceCaptainId ? [Number(data.team.viceCaptainId)] : [];
+}
 
 function persist() {
-  localStorage.setItem("gameDayCrewDataV2", JSON.stringify(data));
+  localStorage.setItem("gameDayCrewDataV4", JSON.stringify(data));
 }
 
 document.querySelectorAll(".tab").forEach(btn=>btn.addEventListener("click",()=>{
@@ -389,6 +419,81 @@ function toggleTeamEdit() {
   el.style.display=el.style.display==="none"?"block":"none";
 }
 
+function isCompetitionAge(age){ return ["U14","U16","U18"].includes(age); }
+function playerNameById(id){ const p=data.players.find(x=>Number(x.id)===Number(id)); return p?p.name:""; }
+
+function toggleLeadershipMenu(kind){
+  const menu=document.getElementById(kind+"LeadershipMenu");
+  if(menu) menu.classList.toggle("open");
+}
+
+function syncLeadershipSelection(kind){
+  const cls=kind==="captain" ? ".seasonCaptainBox:checked" : ".seasonViceCaptainBox:checked";
+  const ids=[...document.querySelectorAll(cls)].map(x=>Number(x.value));
+  if(kind==="captain") data.team.captainIds=ids;
+  else data.team.viceCaptainIds=ids;
+  renderLeadershipSetup();
+  const menu=document.getElementById(kind+"LeadershipMenu");
+  if(menu) menu.classList.add("open");
+}
+
+function renderLeadershipSetup(){
+  const box=document.getElementById("leadershipSetup");
+  const ageEl=document.getElementById("ageGroupInput");
+  if(!box||!ageEl) return;
+  const age=ageEl.value;
+
+  if(!isCompetitionAge(age)){
+    box.innerHTML=`<div style="background:#f4f6f9;border-radius:12px;padding:12px">
+      <strong>Weekly captains</strong>
+      <div class="muted" style="margin-top:4px">${age} teams choose captains separately for each game on the Stats tab.</div>
+    </div>`;
+    return;
+  }
+
+  const captainIds=(data.team.captainIds||[]).map(Number);
+  const viceIds=(data.team.viceCaptainIds||[]).map(Number);
+  const captainNames=data.players.filter(p=>captainIds.includes(Number(p.id))).map(p=>p.name);
+  const viceNames=data.players.filter(p=>viceIds.includes(Number(p.id))).map(p=>p.name);
+
+  box.innerHTML=`<div style="background:#f4f6f9;border-radius:12px;padding:12px">
+    <strong>Season leadership</strong>
+    <div class="muted" style="margin:4px 0 10px">Choose as many Captains and Vice Captains as your team uses.</div>
+
+    <div class="bench-select-wrap">
+      <label>Captains</label>
+      <button type="button" class="bench-select-btn" onclick="toggleLeadershipMenu('captain')">
+        <span>${captainNames.length ? captainNames.length+" selected" : "Select captain/s"}</span><span>▼</span>
+      </button>
+      <div id="captainLeadershipMenu" class="bench-select-menu">
+        ${data.players.map(p=>`
+          <label class="bench-option">
+            <span>${p.name} ${p.number?`<span class="number">#${p.number}</span>`:""}</span>
+            <input class="seasonCaptainBox" type="checkbox" value="${p.id}" ${captainIds.includes(Number(p.id))?"checked":""}
+              onchange="syncLeadershipSelection('captain')">
+          </label>`).join("")}
+      </div>
+      <div class="bench-summary">${captainNames.length ? captainNames.join(", ") : "No captains selected"}</div>
+    </div>
+
+    <div class="bench-select-wrap">
+      <label>Vice Captains</label>
+      <button type="button" class="bench-select-btn" onclick="toggleLeadershipMenu('vice')">
+        <span>${viceNames.length ? viceNames.length+" selected" : "Select vice captain/s"}</span><span>▼</span>
+      </button>
+      <div id="viceLeadershipMenu" class="bench-select-menu">
+        ${data.players.map(p=>`
+          <label class="bench-option">
+            <span>${p.name} ${p.number?`<span class="number">#${p.number}</span>`:""}</span>
+            <input class="seasonViceCaptainBox" type="checkbox" value="${p.id}" ${viceIds.includes(Number(p.id))?"checked":""}
+              onchange="syncLeadershipSelection('vice')">
+          </label>`).join("")}
+      </div>
+      <div class="bench-summary">${viceNames.length ? viceNames.join(", ") : "No vice captains selected"}</div>
+    </div>
+  </div>`;
+}
+
 function showSettingsPage(pageId) {
   document.querySelectorAll(".settings-page").forEach(p=>p.style.display="none");
   const page=document.getElementById(pageId);
@@ -396,11 +501,17 @@ function showSettingsPage(pageId) {
 }
 
 function saveTeam() {
-  data.team.name=document.getElementById("teamNameInput").value.trim() || "Your Team";
-  data.team.season=Number(document.getElementById("seasonInput").value || 2026);
+  data.team.name=document.getElementById("teamNameInput").value.trim() || "Team Name";
+  data.team.season=Number(document.getElementById("seasonInput").value || new Date().getFullYear());
+  data.team.ageGroup=document.getElementById("ageGroupInput").value || "U14";
   data.team.division=document.getElementById("divisionInput").value.trim();
+
+  if(!isCompetitionAge(data.team.ageGroup)){
+    data.team.captainIds=[];
+    data.team.viceCaptainIds=[];
+  }
+
   persist(); renderAll();
-  document.getElementById("teamEditCard").style.display="none";
 }
 
 function addPlayer() {
@@ -441,12 +552,14 @@ let draftGame = {
   opponent:"",
   playerStats:{},
   played:data.players.map(p=>Number(p.id)),
+  captains:[],
   benches:{q1:[],q2:[],q3:[],q4:[]}
 };
 
 function blankDraft() {
   return {id:null,round:"",date:"",opponent:"",playerStats:{},
     played:data.players.map(p=>Number(p.id)),
+    captains:[],
     benches:{q1:[],q2:[],q3:[],q4:[]}};
 }
 
@@ -471,6 +584,11 @@ function syncDraftBasics() {
   if(oppEl) draftGame.opponent=oppEl.value.trim();
 }
 
+function syncCaptainDraft(){
+  if(isCompetitionAge(data.team.ageGroup)) return;
+  draftGame.captains=[...document.querySelectorAll(".captainBox:checked")].map(x=>Number(x.value));
+}
+
 function syncPlayedDraft() {
   draftGame.played=[...document.querySelectorAll(".playedBox:checked")].map(x=>Number(x.value));
 }
@@ -484,6 +602,7 @@ function syncBenchDraft() {
 
 function saveGame() {
   syncDraftBasics();
+  syncCaptainDraft();
   syncPlayedDraft();
   syncBenchDraft();
 
@@ -517,6 +636,7 @@ function editGame(id) {
   draftGame=JSON.parse(JSON.stringify(game));
   if(!draftGame.playerStats) draftGame.playerStats={};
   if(!Array.isArray(draftGame.played)) draftGame.played=data.players.map(p=>Number(p.id));
+  if(!Array.isArray(draftGame.captains)) draftGame.captains=[];
   if(!draftGame.benches) draftGame.benches={q1:[],q2:[],q3:[],q4:[]};
   ["q1","q2","q3","q4"].forEach(q=>{if(!draftGame.benches[q]) draftGame.benches[q]=[]});
   renderAll();
@@ -586,6 +706,7 @@ function migrateOldGamesIfNeeded() {
         opponent:g.opponent||"",
         playerStats:g.playerStats||{},
         played:data.players.map(p=>Number(p.id)),
+        captains:[],
         benches:{q1:[],q2:[],q3:[],q4:[]}
       });
     });
@@ -656,10 +777,12 @@ function deleteAwardEvent(id) {
 function renderTeam() {
   document.getElementById("headerTeam").textContent=data.team.name;
   document.getElementById("homeTeamName").textContent=data.team.name;
-  document.getElementById("homeTeamMeta").textContent=`${data.team.division ? data.team.division+" • " : ""}Season ${data.team.season}`;
+  document.getElementById("homeTeamMeta").textContent=`${data.team.ageGroup ? data.team.ageGroup+" • " : ""}${data.team.division ? data.team.division+" • " : ""}Season ${data.team.season}`;
   document.getElementById("teamNameInput").value=data.team.name;
   document.getElementById("seasonInput").value=data.team.season;
+  document.getElementById("ageGroupInput").value=data.team.ageGroup||"U14";
   document.getElementById("divisionInput").value=data.team.division||"";
+  renderLeadershipSetup();
   document.getElementById("playerCountBadge").textContent=`${data.players.length} player${data.players.length===1?"":"s"}`;
 
   const goldenBootRanked=data.players.map(p=>({
@@ -747,6 +870,26 @@ function renderStatsForm() {
     teamBehinds+=Number(s.behinds||0);
   });
   document.getElementById("teamScore").textContent=`${teamGoals}.${teamBehinds} (${teamGoals*6+teamBehinds})`;
+
+  const captainSection=document.getElementById("gameCaptainSection");
+  if(isCompetitionAge(data.team.ageGroup)){
+    const caps=(data.team.captainIds||[]).map(playerNameById).filter(Boolean);
+    const vices=(data.team.viceCaptainIds||[]).map(playerNameById).filter(Boolean);
+    captainSection.innerHTML=(caps.length||vices.length)?`<div style="background:#f4f6f9;border-radius:12px;padding:12px">
+      <strong>Season leadership</strong><div style="margin-top:6px">
+      ${caps.length?`<span class="badge good">Captain${caps.length>1?"s":""}: ${caps.join(", ")}</span>`:""}
+      ${vices.length?`<span class="badge good">Vice Captain${vices.length>1?"s":""}: ${vices.join(", ")}</span>`:""}</div></div>`
+      :`<div class="muted">Set season Captains and Vice Captains in Settings → Team Setup.</div>`;
+  } else {
+    const selected=(draftGame.captains||[]).map(Number);
+    captainSection.innerHTML=`<button type="button" class="collapse-header" onclick="toggleStatsSection('gameCaptainsBody','gameCaptainsArrow')">
+      <span><strong>Game captains</strong><span class="muted collapse-subtitle">Choose this week's captain/s</span></span>
+      <span id="gameCaptainsArrow" class="collapse-arrow">▼</span></button>
+      <div id="gameCaptainsBody" class="collapse-body"><p class="muted">Select one or more captains for this game.</p>
+      ${data.players.map(p=>`<label class="award-check" style="padding:8px 0"><span>${p.name}</span>
+      <input class="captainBox" type="checkbox" value="${p.id}" ${selected.includes(Number(p.id))?"checked":""}></label>`).join("")}</div>
+      <div class="bench-summary" style="margin-top:8px">${selected.length?selected.map(playerNameById).join(", "):"No game captains selected"}</div>`;
+  }
 
   const playedSelected=(draftGame.played||[]).map(Number);
   document.getElementById("playedPlayersList").innerHTML=data.players.map(p=>`
@@ -880,6 +1023,13 @@ function renderGoals() {
   renderBenchChart();
 }
 
+function captainCountForPlayer(id){
+  return (data.gameRecords||[]).reduce((count,g)=>{
+    const caps=Array.isArray(g.captains)?g.captains.map(Number):[];
+    return count+(caps.includes(Number(id))?1:0);
+  },0);
+}
+
 function renderAwards() {
   // Award entry dropdowns
   document.getElementById("awardDropdowns").innerHTML=data.awardTypes.length?data.awardTypes.map(a=>`
@@ -952,6 +1102,27 @@ function renderAwards() {
     </div>`;
   }).join(""):'<div class="empty">Add players on the Team tab first.</div>';
 
+  const captainCard=document.getElementById("captainRotationCard");
+  const captainList=document.getElementById("captainRotationList");
+  if(["U9","U10","U12"].includes(data.team.ageGroup)){
+    captainCard.style.display="block";
+    const rankedCaptains=data.players.map(p=>({
+      player:p,
+      count:captainCountForPlayer(p.id)
+    })).sort((a,b)=>a.count-b.count || a.player.name.localeCompare(b.player.name));
+
+    captainList.innerHTML=rankedCaptains.length?rankedCaptains.map(item=>`
+      <div class="player-row">
+        <div class="player-name">${item.player.name} ${item.player.number?`<span class="number">#${item.player.number}</span>`:""}
+          <div class="number">${item.count===0 ? "Has not been captain yet" : `Captain ${item.count} time${item.count===1?"":"s"}`}</div>
+        </div>
+        ${item.count===0 ? `<span class="badge warn">Never captain</span>` : `<span class="badge good">${item.count} time${item.count===1?"":"s"}</span>`}
+      </div>`).join(""):'<div class="empty">No players yet.</div>';
+  } else {
+    captainCard.style.display="none";
+    captainList.innerHTML="";
+  }
+
   // History
   const history=[...data.awardEvents].sort((a,b)=>b.date.localeCompare(a.date));
   document.getElementById("awardHistory").innerHTML=history.length?history.map(e=>{
@@ -965,6 +1136,163 @@ function renderAwards() {
       <button class="danger smallbtn" onclick="deleteAwardEvent(${e.id})">Delete</button>
     </div>`;
   }).join(""):'<div class="empty">No awards recorded yet.</div>';
+}
+
+function escapeHtml(value){
+  return String(value??"")
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;");
+}
+
+function exportSeasonReport(){
+  const players=[...data.players];
+  const ranked=players.map(p=>({player:p,totals:totalsForPlayer(p.id)}))
+    .sort((a,b)=>b.totals.goals-a.totals.goals || b.totals.points-a.totals.points || a.player.name.localeCompare(b.player.name));
+
+  const games=[...(data.gameRecords||[])].sort((a,b)=>Number(a.round||0)-Number(b.round||0));
+  const awards=[...(data.awardEvents||[])].sort((a,b)=>String(a.date||"").localeCompare(String(b.date||"")));
+
+  const leadershipHtml=isCompetitionAge(data.team.ageGroup)
+    ? `<p><strong>Captains:</strong> ${(data.team.captainIds||[]).map(playerNameById).filter(Boolean).map(escapeHtml).join(", ") || "None set"}<br>
+       <strong>Vice Captains:</strong> ${(data.team.viceCaptainIds||[]).map(playerNameById).filter(Boolean).map(escapeHtml).join(", ") || "None set"}</p>`
+    : "";
+
+  const playerRows=ranked.map((x,i)=>{
+    const career=careerGamesForPlayer(x.player.id);
+    const bench=benchStartsForPlayer(x.player.id);
+    return `<tr>
+      <td>${i+1}</td>
+      <td>${escapeHtml(x.player.name)}</td>
+      <td>${escapeHtml(x.player.number||"")}</td>
+      <td>${career}</td>
+      <td>${x.totals.goals}</td>
+      <td>${x.totals.behinds}</td>
+      <td>${x.totals.points}</td>
+      <td>${bench}</td>
+    </tr>`;
+  }).join("");
+
+  const gameRows=games.map(g=>{
+    let goals=0,behinds=0;
+    Object.values(g.playerStats||{}).forEach(s=>{
+      goals+=Number(s.goals||0); behinds+=Number(s.behinds||0);
+    });
+    const scorers=players.map(p=>{
+      const s=(g.playerStats||{})[p.id];
+      return s && Number(s.goals||0)>0 ? `${escapeHtml(p.name)} ${Number(s.goals||0)}` : null;
+    }).filter(Boolean).join(", ");
+
+    let captains="";
+    if(isCompetitionAge(data.team.ageGroup)){
+      captains=(data.team.captainIds||[]).map(playerNameById).filter(Boolean).join(", ");
+    }else{
+      captains=(g.captains||[]).map(playerNameById).filter(Boolean).join(", ");
+    }
+
+    return `<tr>
+      <td>${escapeHtml(g.round||"")}</td>
+      <td>${escapeHtml(g.date||"")}</td>
+      <td>${escapeHtml(g.opponent||"")}</td>
+      <td>${goals}.${behinds} (${goals*6+behinds})</td>
+      <td>${Array.isArray(g.played)?g.played.length:players.length}</td>
+      <td>${escapeHtml(captains||"")}</td>
+      <td>${scorers||"-"}</td>
+    </tr>`;
+  }).join("");
+
+  const awardRows=awards.map(e=>{
+    const p=players.find(x=>Number(x.id)===Number(e.playerId));
+    const a=(data.awardTypes||[]).find(x=>x.id===e.awardTypeId);
+    if(!p||!a) return "";
+    return `<tr>
+      <td>${escapeHtml(e.date||"")}</td>
+      <td>${escapeHtml(e.round||"")}</td>
+      <td>${escapeHtml(p.name)}</td>
+      <td>${escapeHtml(a.name)}</td>
+    </tr>`;
+  }).join("");
+
+  const milestoneRows=players.map(p=>{
+    const total=careerGamesForPlayer(p.id);
+    const next=nextMilestone(total);
+    const away=next-total;
+    return {p,total,next,away};
+  }).sort((a,b)=>a.away-b.away || b.total-a.total)
+    .filter(x=>x.away<=10)
+    .map(x=>`<tr><td>${escapeHtml(x.p.name)}</td><td>${x.total}</td><td>${x.next}</td><td>${x.away}</td></tr>`).join("");
+
+  const report=`<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>${escapeHtml(data.team.name)} - GameDay Crew Season Report</title>
+<style>
+  @page{size:A4;margin:14mm}
+  body{font-family:Arial,Helvetica,sans-serif;color:#172033;margin:0;font-size:11px}
+  h1{font-size:24px;margin:0;color:#10284d}
+  h2{font-size:16px;color:#10284d;margin:22px 0 8px;border-bottom:2px solid #d7aa4f;padding-bottom:5px}
+  .subtitle{color:#667085;margin-top:4px}
+  .summary{background:#f4f6f9;padding:12px;border-radius:8px;margin:14px 0}
+  table{width:100%;border-collapse:collapse;margin-top:7px}
+  th,td{border:1px solid #d9dde4;padding:6px;text-align:left;vertical-align:top}
+  th{background:#eef1f5;color:#10284d}
+  .small{font-size:9px;color:#667085}
+  .footer{margin-top:20px;font-size:9px;color:#777;text-align:center}
+  @media print{button{display:none}}
+</style>
+</head>
+<body>
+  <h1>GameDay Crew - Season Report</h1>
+  <div class="subtitle">${escapeHtml(data.team.name)} • ${escapeHtml(data.team.ageGroup||"")} ${escapeHtml(data.team.division||"")} • Season ${escapeHtml(data.team.season)}</div>
+
+  <div class="summary">
+    <strong>Players:</strong> ${players.length}<br>
+    <strong>Games entered:</strong> ${games.length}<br>
+    ${leadershipHtml}
+  </div>
+
+  <h2>Season Player Stats</h2>
+  <table>
+    <thead><tr><th>Rank</th><th>Player</th><th>No.</th><th>Career Games</th><th>Goals</th><th>Behinds</th><th>Points</th><th>Bench Starts</th></tr></thead>
+    <tbody>${playerRows || '<tr><td colspan="8">No player data.</td></tr>'}</tbody>
+  </table>
+
+  <h2>Milestone Watch</h2>
+  <table>
+    <thead><tr><th>Player</th><th>Career Games</th><th>Next Milestone</th><th>Games Away</th></tr></thead>
+    <tbody>${milestoneRows || '<tr><td colspan="4">No players within 10 games of a milestone.</td></tr>'}</tbody>
+  </table>
+
+  <h2>Games</h2>
+  <table>
+    <thead><tr><th>Round</th><th>Date</th><th>Opponent</th><th>Score</th><th>Played</th><th>Captain/s</th><th>Goal Kickers</th></tr></thead>
+    <tbody>${gameRows || '<tr><td colspan="7">No games entered.</td></tr>'}</tbody>
+  </table>
+
+  <h2>Awards</h2>
+  <table>
+    <thead><tr><th>Date</th><th>Round</th><th>Player</th><th>Award</th></tr></thead>
+    <tbody>${awardRows || '<tr><td colspan="4">No awards recorded.</td></tr>'}</tbody>
+  </table>
+
+  <div class="footer">Generated from GameDay Crew</div>
+
+<script>
+window.onload=()=>setTimeout(()=>window.print(),250);
+<\/script>
+</body>
+</html>`;
+
+  const w=window.open("","_blank");
+  if(!w){
+    alert("Your browser blocked the report window. Allow pop-ups for GameDay Crew and try again.");
+    return;
+  }
+  w.document.open();
+  w.document.write(report);
+  w.document.close();
 }
 
 function renderAll() {
@@ -986,6 +1314,14 @@ document.addEventListener("change",e=>{
     if(open){
       document.getElementById("playedPlayersBody")?.classList.add("open");
       document.getElementById("playedPlayersArrow")?.classList.add("open");
+    }
+  }
+  if(e.target && e.target.classList.contains("captainBox")){
+    const open=document.getElementById("gameCaptainsBody")?.classList.contains("open");
+    syncCaptainDraft(); renderStatsForm();
+    if(open){
+      document.getElementById("gameCaptainsBody")?.classList.add("open");
+      document.getElementById("gameCaptainsArrow")?.classList.add("open");
     }
   }
 });
