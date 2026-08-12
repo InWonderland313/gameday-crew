@@ -6,12 +6,10 @@
   <meta name="theme-color" content="#0B2346">
   <meta name="description" content="Junior Australian Rules football team management.">
   <title>GameDay Crew</title>
-
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon-192.png">
   <link rel="apple-touch-icon" href="icon-192.png">
   <link rel="stylesheet" href="styles.css">
-
   <script src="brand.js"></script>
   <script defer src="app.js"></script>
 </head>
@@ -29,7 +27,6 @@
         <p class="eyebrow">WELCOME TO</p>
         <h1 data-brand-name>GameDay Crew</h1>
         <p class="tagline" data-brand-tagline>Junior footy management made simple.</p>
-
         <div class="auth-actions">
           <button class="btn btn-primary" data-open="loginPanel">Log In</button>
           <button class="btn btn-secondary" data-open="signupPanel">Create Account</button>
@@ -37,30 +34,20 @@
 
         <div id="loginPanel" class="auth-panel hidden">
           <h2>Log In</h2>
-          <label>Email
-            <input type="email" placeholder="you@example.com" autocomplete="email">
-          </label>
-          <label>Password
-            <input type="password" placeholder="Password" autocomplete="current-password">
-          </label>
+          <label>Email<input type="email" placeholder="you@example.com" autocomplete="email"></label>
+          <label>Password<input type="password" placeholder="Password" autocomplete="current-password"></label>
           <button class="btn btn-primary" data-demo-login>Log In</button>
           <button class="text-btn" type="button">Forgot password?</button>
-          <p class="demo-note">Login is visual-only in this starter build. Cloud accounts come next.</p>
+          <p class="demo-note">Login is visual-only in this development build. Cloud accounts come next.</p>
         </div>
 
         <div id="signupPanel" class="auth-panel hidden">
           <h2>Create Account</h2>
-          <label>Your name
-            <input type="text" placeholder="Your name" autocomplete="name">
-          </label>
-          <label>Email
-            <input type="email" placeholder="you@example.com" autocomplete="email">
-          </label>
-          <label>Password
-            <input type="password" placeholder="Create a password" autocomplete="new-password">
-          </label>
+          <label>Your name<input type="text" placeholder="Your name" autocomplete="name"></label>
+          <label>Email<input type="email" placeholder="you@example.com" autocomplete="email"></label>
+          <label>Password<input type="password" placeholder="Create a password" autocomplete="new-password"></label>
           <button class="btn btn-primary" data-demo-login>Create Account</button>
-          <p class="demo-note">Account creation is visual-only in this starter build.</p>
+          <p class="demo-note">Account creation is visual-only in this development build.</p>
         </div>
       </div>
     </section>
@@ -68,43 +55,116 @@
     <section id="welcomeScreen" class="screen">
       <header class="topbar">
         <img src="logo.png" alt="" class="topbar-logo">
-        <div>
-          <p class="eyebrow">WELCOME</p>
-          <h2 data-brand-name>GameDay Crew</h2>
-        </div>
+        <div><p class="eyebrow">WELCOME</p><h2 data-brand-name>GameDay Crew</h2></div>
         <button class="icon-btn" data-logout aria-label="Log out">↗</button>
       </header>
-
       <div class="content">
         <div class="welcome-card">
           <p class="eyebrow">LET'S GET STARTED</p>
           <h1>What brings you to GameDay Crew?</h1>
-          <p class="muted">This is the first step of the proper club-based platform.</p>
-
-          <button class="choice-card" data-choice="create">
+          <p class="muted">Choose the path that matches how you're joining.</p>
+          <button class="choice-card" data-go-create-club>
             <span class="choice-icon">🏉</span>
-            <span>
-              <strong>Create a Club</strong>
-              <small>I'm setting up GameDay Crew for my club.</small>
-            </span>
+            <span><strong>Create a Club</strong><small>I'm setting up GameDay Crew for my club.</small></span>
             <span class="chevron">›</span>
           </button>
-
-          <button class="choice-card" data-choice="invite">
+          <button class="choice-card" data-invite-placeholder>
             <span class="choice-icon">✉️</span>
-            <span>
-              <strong>I've Been Invited</strong>
-              <small>I'm joining an existing club or team.</small>
-            </span>
+            <span><strong>I've Been Invited</strong><small>I'm joining an existing club or team.</small></span>
             <span class="chevron">›</span>
           </button>
         </div>
-
         <div id="starterMessage" class="starter-message hidden"></div>
       </div>
     </section>
-  </main>
 
+    <section id="createClubScreen" class="screen">
+      <header class="topbar">
+        <button class="icon-btn back-btn" data-back-welcome aria-label="Back">←</button>
+        <div><p class="eyebrow">CLUB SETUP</p><h2>Create your club</h2></div>
+      </header>
+      <div class="content">
+        <div class="form-card">
+          <p class="eyebrow">GETTING STARTED</p>
+          <h1>Let's set up your club</h1>
+          <p class="muted">You can change these details later.</p>
+
+          <label>Club name
+            <input id="clubNameInput" type="text" placeholder="e.g. Belmont Lions Football Club">
+          </label>
+          <label>Season
+            <input id="clubSeasonInput" type="number" min="2026" max="2100" value="2027">
+          </label>
+          <label>Football type
+            <select id="footballTypeInput">
+              <option value="Australian Rules">Australian Rules</option>
+            </select>
+          </label>
+          <label>Club logo <span class="optional">(optional)</span>
+            <input id="clubLogoInput" type="file" accept="image/*">
+          </label>
+          <div id="clubLogoPreviewWrap" class="logo-preview-wrap hidden">
+            <img id="clubLogoPreview" alt="Club logo preview" class="club-logo-preview">
+            <button class="text-btn" type="button" data-remove-club-logo>Remove logo</button>
+          </div>
+          <button class="btn btn-primary full-width" data-create-club>Create Club</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="clubDashboardScreen" class="screen">
+      <header class="club-hero">
+        <div class="club-hero-inner">
+          <img id="dashboardClubLogo" src="logo.png" alt="" class="club-hero-logo">
+          <div class="club-hero-copy">
+            <p class="eyebrow">CLUB ADMIN</p>
+            <h1 id="dashboardClubName">Your Club</h1>
+            <p id="dashboardSeason" class="club-season">Season 2027</p>
+          </div>
+          <button class="icon-btn" data-logout aria-label="Log out">↗</button>
+        </div>
+      </header>
+
+      <div class="content dashboard-content">
+        <div class="attention-card success-card">
+          <span class="attention-icon">✓</span>
+          <div>
+            <strong>Your club is ready to set up</strong>
+            <small>Next, we'll add your first team and invite managers.</small>
+          </div>
+        </div>
+
+        <section class="dashboard-section">
+          <p class="eyebrow">CLUB OVERVIEW</p>
+          <h2 class="section-title">Welcome to your dashboard</h2>
+          <div class="stat-grid">
+            <div class="stat-card"><span>🏉</span><strong>0</strong><small>Teams</small></div>
+            <div class="stat-card"><span>👤</span><strong>1</strong><small>Admins</small></div>
+            <div class="stat-card"><span>👥</span><strong>0</strong><small>Managers</small></div>
+            <div class="stat-card"><span>🧒</span><strong>0</strong><small>Players</small></div>
+          </div>
+        </section>
+
+        <section class="dashboard-section">
+          <div class="empty-state">
+            <div class="empty-icon">🏉</div>
+            <h2>Add your first team</h2>
+            <p class="muted">Create teams first, then invite managers when you're ready.</p>
+            <button class="btn btn-primary" data-add-first-team>+ Add First Team</button>
+          </div>
+        </section>
+
+        <div id="dashboardMessage" class="starter-message hidden"></div>
+      </div>
+
+      <nav class="bottom-nav">
+        <button class="nav-item nav-active"><span>⌂</span><small>Home</small></button>
+        <button class="nav-item"><span>👥</span><small>Teams</small></button>
+        <button class="nav-item"><span>👤</span><small>People</small></button>
+        <button class="nav-item"><span>⚙</span><small>Club</small></button>
+      </nav>
+    </section>
+  </main>
   <noscript>This app requires JavaScript.</noscript>
 </body>
 </html>
