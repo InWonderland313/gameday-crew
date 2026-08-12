@@ -1,4 +1,4 @@
-const CACHE_NAME="gameday-crew-v2-shell-3";
+const CACHE_NAME="gameday-crew-v2-shell-4";
 const APP_SHELL=["./","./index.html","./styles.css","./brand.js","./app.js","./manifest.webmanifest","./logo.png","./icon-192.png","./icon-512.png"];
 self.addEventListener("install",e=>{e.waitUntil(caches.open(CACHE_NAME).then(c=>c.addAll(APP_SHELL)));self.skipWaiting()});
 self.addEventListener("activate",e=>{e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE_NAME).map(k=>caches.delete(k)))));self.clients.claim()});

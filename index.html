@@ -276,6 +276,155 @@
     </div>
   </div>
 </section>
+
+<section id="teamAdminScreen" class="screen">
+  <header class="team-hero">
+    <div class="team-hero-inner">
+      <button class="icon-btn" data-back-to-club aria-label="Back">←</button>
+      <div class="team-badge-large" id="teamAdminBadge">U12</div>
+      <div class="team-hero-copy">
+        <p class="eyebrow">TEAM ADMIN</p>
+        <h1 id="teamAdminName">Team</h1>
+        <p id="teamAdminMeta" class="team-meta">U12 • Mixed</p>
+      </div>
+    </div>
+  </header>
+
+  <div class="content dashboard-content">
+    <div id="teamSetupStatus" class="attention-card warning-card">
+      <span class="attention-icon">!</span>
+      <div>
+        <strong>Team setup isn't finished yet</strong>
+        <small>Add the player list so this team is ready for game day.</small>
+      </div>
+    </div>
+
+    <section class="dashboard-section">
+      <p class="eyebrow">TEAM OVERVIEW</p>
+      <div class="stat-grid team-stat-grid">
+        <div class="stat-card"><span>🧒</span><strong id="teamPlayerCount">0</strong><small>Players</small></div>
+        <div class="stat-card"><span>👤</span><strong>0</strong><small>Managers</small></div>
+        <div class="stat-card"><span>🏉</span><strong>0</strong><small>Games</small></div>
+        <div class="stat-card"><span>🏆</span><strong>0</strong><small>Awards</small></div>
+      </div>
+    </section>
+
+    <section class="dashboard-section">
+      <div class="setup-actions">
+        <button class="setup-action-card" data-open-team-players>
+          <span class="setup-action-icon">🧒</span>
+          <span>
+            <strong>Players</strong>
+            <small id="playersSetupSummary">Add names, numbers and career games.</small>
+          </span>
+          <span class="chevron">›</span>
+        </button>
+
+        <button class="setup-action-card" data-manager-placeholder>
+          <span class="setup-action-icon">👤</span>
+          <span>
+            <strong>Managers</strong>
+            <small>Invite the people who will manage this team.</small>
+          </span>
+          <span class="chevron">›</span>
+        </button>
+
+        <button class="setup-action-card" data-settings-placeholder>
+          <span class="setup-action-icon">⚙</span>
+          <span>
+            <strong>Team Settings</strong>
+            <small id="teamSettingsSummary">Age-aware captain and game settings.</small>
+          </span>
+          <span class="chevron">›</span>
+        </button>
+      </div>
+    </section>
+
+    <div id="teamAdminMessage" class="starter-message hidden"></div>
+  </div>
+</section>
+
+<section id="teamPlayersScreen" class="screen">
+  <header class="topbar">
+    <button class="icon-btn" data-back-team-admin aria-label="Back">←</button>
+    <div>
+      <p class="eyebrow">TEAM SETUP</p>
+      <h2 id="playerScreenTeamName">Players</h2>
+    </div>
+    <button class="topbar-action" data-show-add-player>+ Add Player</button>
+  </header>
+
+  <div class="content dashboard-content">
+    <div id="addPlayerPanel" class="form-card hidden">
+      <div class="section-heading-row">
+        <div>
+          <p class="eyebrow">NEW PLAYER</p>
+          <h2 class="section-title">Add a player</h2>
+        </div>
+        <button class="text-btn" data-cancel-add-player>Cancel</button>
+      </div>
+
+      <label>Player name
+        <input id="playerNameInput" type="text" placeholder="e.g. Jack Smith">
+      </label>
+
+      <div class="two-col-form">
+        <label>Jumper number
+          <input id="playerNumberInput" type="number" min="0" max="99" placeholder="e.g. 12">
+        </label>
+        <label>Career games
+          <input id="playerCareerInput" type="number" min="0" value="0">
+        </label>
+      </div>
+
+      <button class="btn btn-primary full-width" data-save-player>Add Player</button>
+    </div>
+
+    <div id="playersEmpty" class="empty-state">
+      <div class="empty-icon">🧒</div>
+      <h2>No players added yet</h2>
+      <p class="muted">Add the team list, jumper numbers and each player's starting career-game total.</p>
+      <button class="btn btn-primary" data-show-add-player>+ Add First Player</button>
+    </div>
+
+    <div id="playersListWrap" class="hidden">
+      <div class="section-heading-row">
+        <div>
+          <p class="eyebrow">TEAM LIST</p>
+          <h1 class="page-title"><span id="playersCountHeading">0</span> players</h1>
+        </div>
+        <button class="text-btn add-link" data-show-add-player>+ Add Player</button>
+      </div>
+
+      <div id="playersList" class="players-list"></div>
+    </div>
+  </div>
+</section>
+
+<section id="editPlayerScreen" class="screen">
+  <header class="topbar">
+    <button class="icon-btn" data-back-player-list aria-label="Back">←</button>
+    <div><p class="eyebrow">PLAYER</p><h2>Edit player</h2></div>
+  </header>
+  <div class="content">
+    <div class="form-card">
+      <label>Player name
+        <input id="editPlayerNameInput" type="text">
+      </label>
+      <div class="two-col-form">
+        <label>Jumper number
+          <input id="editPlayerNumberInput" type="number" min="0" max="99">
+        </label>
+        <label>Starting career games
+          <input id="editPlayerCareerInput" type="number" min="0">
+        </label>
+      </div>
+      <button class="btn btn-primary full-width" data-save-player-edit>Save Changes</button>
+      <button class="btn danger-outline full-width" data-delete-player>Remove Player</button>
+    </div>
+  </div>
+</section>
+
 </main>
   <noscript>This app requires JavaScript.</noscript>
 </body>

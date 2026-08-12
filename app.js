@@ -90,18 +90,21 @@
   };
 
   const teamCardHtml = team => `
-    <div class="team-card">
+    <button class="team-card" data-team-id="${team.id}">
       <div class="team-badge">${team.ageGroup || "TEAM"}</div>
       <div>
         <strong>${team.name}</strong>
         <small>${teamMeta(team)} • No manager assigned yet</small>
       </div>
       <div class="team-arrow">›</div>
-    </div>`;
+    </button>`;
 
   const renderTeams = () => {
     const teams = getTeams();
     document.getElementById("teamCountStat").textContent = String(teams.length);
+    const allPlayers = (() => { try { return JSON.parse(localStorage.getItem("gdc_v2_demo_players") || "[]"); } catch { return []; } })();
+    const playerStat = document.querySelector("#clubDashboardScreen .stat-grid .stat-card:nth-child(4) strong");
+    if (playerStat) playerStat.textContent = String(allPlayers.length);
 
     const empty = document.getElementById("dashboardTeamsEmpty");
     const wrap = document.getElementById("dashboardTeamsListWrap");
@@ -223,6 +226,221 @@
   });
 
   renderTeams();
+
+
+  const PLAYERS_KEY = "gdc_v2_demo_players";
+  let currentTeamId = null;
+  let editingPlayerId = null;
+
+  const getAllPlayers = () => {
+    try { return JSON.parse(localStorage.getItem(PLAYERS_KEY) || "[]"); }
+    catch { return []; }
+  };
+
+  const saveAllPlayers = players => localStorage.setItem(PLAYERS_KEY, JSON.stringify(players));
+
+  const playersForTeam = teamId => getAllPlayers().filter(p => p.teamId === teamId);
+
+  const getCurrentTeam = () => getTeams().find(t => t.id === currentTeamId) || null;
+
+  const openTeamAdmin = teamId => {
+    currentTeamId = teamId;
+    const team = getCurrentTeam();
+    if (!team) return;
+
+    document.getElementById("teamAdminBadge").textContent = team.ageGroup || "TEAM";
+    document.getElementById("teamAdminName").textContent = team.name;
+    document.getElementById("teamAdminMeta").textContent = teamMeta(team);
+    document.getElementById("playerScreenTeamName").textContent = `${team.name} Players`;
+
+    const junior = ["U9","U10","U12"].includes(team.ageGroup);
+    document.getElementById("teamSettingsSummary").textContent = junior
+      ? "Weekly rotating captains and captain fairness tracking."
+      : "Season Captains and Vice Captains, including multiple leaders.";
+
+    renderTeamAdmin();
+    showScreen("teamAdminScreen");
+  };
+
+  const renderTeamAdmin = () => {
+    if (!currentTeamId) return;
+    const players = playersForTeam(currentTeamId);
+    document.getElementById("teamPlayerCount").textContent = String(players.length);
+    document.getElementById("playersSetupSummary").textContent = players.length
+      ? `${players.length} player${players.length === 1 ? "" : "s"} added.`
+      : "Add names, numbers and career games.";
+
+    const status = document.getElementById("teamSetupStatus");
+    if (players.length) {
+      status.classList.remove("warning-card");
+      status.classList.add("success-card");
+      status.querySelector(".attention-icon").textContent = "✓";
+      status.querySelector("strong").textContent = "Player list started";
+      status.querySelector("small").textContent = `${players.length} player${players.length === 1 ? "" : "s"} added. Managers and settings can be completed next.`;
+    } else {
+      status.classList.remove("success-card");
+      status.classList.add("warning-card");
+      status.querySelector(".attention-icon").textContent = "!";
+      status.querySelector("strong").textContent = "Team setup isn't finished yet";
+      status.querySelector("small").textContent = "Add the player list so this team is ready for game day.";
+    }
+  };
+
+  const playerCardHtml = p => `
+    <button class="player-card" data-player-id="${p.id}">
+      <div class="player-number">${p.number || "—"}</div>
+      <div>
+        <strong>${p.name}</strong>
+        <small>${Number(p.careerGames || 0)} starting career game${Number(p.careerGames || 0) === 1 ? "" : "s"}</small>
+      </div>
+      <div class="player-arrow">›</div>
+    </button>`;
+
+  const renderPlayerList = () => {
+    const players = currentTeamId ? playersForTeam(currentTeamId) : [];
+    const empty = document.getElementById("playersEmpty");
+    const wrap = document.getElementById("playersListWrap");
+    const list = document.getElementById("playersList");
+    document.getElementById("playersCountHeading").textContent = String(players.length);
+
+    if (players.length) {
+      empty.classList.add("hidden");
+      wrap.classList.remove("hidden");
+      list.innerHTML = [...players]
+        .sort((a,b) => Number(a.number || 999) - Number(b.number || 999) || a.name.localeCompare(b.name))
+        .map(playerCardHtml).join("");
+    } else {
+      empty.classList.remove("hidden");
+      wrap.classList.add("hidden");
+      list.innerHTML = "";
+    }
+  };
+
+  const hideAddPlayer = () => {
+    document.getElementById("addPlayerPanel")?.classList.add("hidden");
+  };
+
+  const showAddPlayer = () => {
+    document.getElementById("playerNameInput").value = "";
+    document.getElementById("playerNumberInput").value = "";
+    document.getElementById("playerCareerInput").value = "0";
+    document.getElementById("addPlayerPanel")?.classList.remove("hidden");
+    document.getElementById("playerNameInput")?.focus();
+  };
+
+  document.addEventListener("click", event => {
+    const teamCard = event.target.closest("[data-team-id]");
+    if (teamCard) {
+      openTeamAdmin(teamCard.dataset.teamId);
+      return;
+    }
+
+    const playerCard = event.target.closest("[data-player-id]");
+    if (playerCard) {
+      const p = getAllPlayers().find(x => x.id === playerCard.dataset.playerId);
+      if (!p) return;
+      editingPlayerId = p.id;
+      document.getElementById("editPlayerNameInput").value = p.name;
+      document.getElementById("editPlayerNumberInput").value = p.number || "";
+      document.getElementById("editPlayerCareerInput").value = Number(p.careerGames || 0);
+      showScreen("editPlayerScreen");
+    }
+  });
+
+  document.querySelector("[data-back-to-club]")?.addEventListener("click", () => {
+    renderTeams();
+    showScreen("clubDashboardScreen");
+  });
+
+  document.querySelector("[data-open-team-players]")?.addEventListener("click", () => {
+    renderPlayerList();
+    showScreen("teamPlayersScreen");
+  });
+
+  document.querySelector("[data-back-team-admin]")?.addEventListener("click", () => {
+    hideAddPlayer();
+    renderTeamAdmin();
+    showScreen("teamAdminScreen");
+  });
+
+  document.querySelectorAll("[data-show-add-player]").forEach(btn => btn.addEventListener("click", showAddPlayer));
+  document.querySelector("[data-cancel-add-player]")?.addEventListener("click", hideAddPlayer);
+
+  document.querySelector("[data-save-player]")?.addEventListener("click", () => {
+    const name = document.getElementById("playerNameInput")?.value.trim();
+    const number = document.getElementById("playerNumberInput")?.value.trim() || "";
+    const careerGames = Math.max(0, Number(document.getElementById("playerCareerInput")?.value || 0));
+
+    if (!name) return alert("Enter the player's name.");
+    if (!currentTeamId) return alert("No team selected.");
+
+    const all = getAllPlayers();
+    if (number && all.some(p => p.teamId === currentTeamId && String(p.number) === String(number))) {
+      if (!confirm(`Jumper #${number} is already being used in this team. Add this player anyway?`)) return;
+    }
+
+    all.push({
+      id: "player_" + Date.now(),
+      teamId: currentTeamId,
+      name,
+      number,
+      careerGames,
+      status: "active",
+      createdAt: new Date().toISOString()
+    });
+    saveAllPlayers(all);
+    hideAddPlayer();
+    renderPlayerList();
+  });
+
+  document.querySelector("[data-back-player-list]")?.addEventListener("click", () => {
+    editingPlayerId = null;
+    renderPlayerList();
+    showScreen("teamPlayersScreen");
+  });
+
+  document.querySelector("[data-save-player-edit]")?.addEventListener("click", () => {
+    const all = getAllPlayers();
+    const p = all.find(x => x.id === editingPlayerId);
+    if (!p) return;
+
+    const name = document.getElementById("editPlayerNameInput")?.value.trim();
+    const number = document.getElementById("editPlayerNumberInput")?.value.trim() || "";
+    const careerGames = Math.max(0, Number(document.getElementById("editPlayerCareerInput")?.value || 0));
+    if (!name) return alert("Enter the player's name.");
+
+    p.name = name;
+    p.number = number;
+    p.careerGames = careerGames;
+    saveAllPlayers(all);
+    editingPlayerId = null;
+    renderPlayerList();
+    showScreen("teamPlayersScreen");
+  });
+
+  document.querySelector("[data-delete-player]")?.addEventListener("click", () => {
+    const all = getAllPlayers();
+    const p = all.find(x => x.id === editingPlayerId);
+    if (!p) return;
+    if (!confirm(`Remove ${p.name} from this team?`)) return;
+
+    saveAllPlayers(all.filter(x => x.id !== editingPlayerId));
+    editingPlayerId = null;
+    renderPlayerList();
+    showScreen("teamPlayersScreen");
+  });
+
+  document.querySelector("[data-manager-placeholder]")?.addEventListener("click", () => {
+    const m = document.getElementById("teamAdminMessage");
+    m.classList.remove("hidden");
+    m.textContent = "People & manager invitations are coming next.";
+  });
+
+  document.querySelector("[data-settings-placeholder]")?.addEventListener("click", () => {
+    const m = document.getElementById("teamAdminMessage");
+    m.classList.remove("hidden");
+    m.textContent = "Team Settings will be added after players and managers.";
+  });
 
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
