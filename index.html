@@ -113,58 +113,170 @@
     </section>
 
     <section id="clubDashboardScreen" class="screen">
-      <header class="club-hero">
-        <div class="club-hero-inner">
-          <img id="dashboardClubLogo" src="logo.png" alt="" class="club-hero-logo">
-          <div class="club-hero-copy">
-            <p class="eyebrow">CLUB ADMIN</p>
-            <h1 id="dashboardClubName">Your Club</h1>
-            <p id="dashboardSeason" class="club-season">Season 2027</p>
-          </div>
-          <button class="icon-btn" data-logout aria-label="Log out">↗</button>
-        </div>
-      </header>
+  <header class="club-hero">
+    <div class="club-hero-inner">
+      <img id="dashboardClubLogo" src="logo.png" alt="" class="club-hero-logo">
+      <div class="club-hero-copy">
+        <p class="eyebrow">CLUB ADMIN</p>
+        <h1 id="dashboardClubName">Your Club</h1>
+        <p id="dashboardSeason" class="club-season">Season 2027</p>
+      </div>
+      <button class="icon-btn" data-logout aria-label="Log out">↗</button>
+    </div>
+  </header>
 
-      <div class="content dashboard-content">
-        <div class="attention-card success-card">
-          <span class="attention-icon">✓</span>
-          <div>
-            <strong>Your club is ready to set up</strong>
-            <small>Next, we'll add your first team and invite managers.</small>
-          </div>
-        </div>
+  <div class="content dashboard-content">
+    <div id="clubStatusCard" class="attention-card success-card">
+      <span class="attention-icon">✓</span>
+      <div>
+        <strong id="clubStatusTitle">Your club is ready to set up</strong>
+        <small id="clubStatusText">Next, add your first team and invite managers.</small>
+      </div>
+    </div>
 
-        <section class="dashboard-section">
-          <p class="eyebrow">CLUB OVERVIEW</p>
-          <h2 class="section-title">Welcome to your dashboard</h2>
-          <div class="stat-grid">
-            <div class="stat-card"><span>🏉</span><strong>0</strong><small>Teams</small></div>
-            <div class="stat-card"><span>👤</span><strong>1</strong><small>Admins</small></div>
-            <div class="stat-card"><span>👥</span><strong>0</strong><small>Managers</small></div>
-            <div class="stat-card"><span>🧒</span><strong>0</strong><small>Players</small></div>
-          </div>
-        </section>
+    <section class="dashboard-section">
+      <p class="eyebrow">CLUB OVERVIEW</p>
+      <h2 class="section-title">Welcome to your dashboard</h2>
+      <div class="stat-grid">
+        <div class="stat-card"><span>🏉</span><strong id="teamCountStat">0</strong><small>Teams</small></div>
+        <div class="stat-card"><span>👤</span><strong>1</strong><small>Admins</small></div>
+        <div class="stat-card"><span>👥</span><strong>0</strong><small>Managers</small></div>
+        <div class="stat-card"><span>🧒</span><strong>0</strong><small>Players</small></div>
+      </div>
+    </section>
 
-        <section class="dashboard-section">
-          <div class="empty-state">
-            <div class="empty-icon">🏉</div>
-            <h2>Add your first team</h2>
-            <p class="muted">Create teams first, then invite managers when you're ready.</p>
-            <button class="btn btn-primary" data-add-first-team>+ Add First Team</button>
-          </div>
-        </section>
-
-        <div id="dashboardMessage" class="starter-message hidden"></div>
+    <section class="dashboard-section">
+      <div id="dashboardTeamsEmpty" class="empty-state">
+        <div class="empty-icon">🏉</div>
+        <h2>Add your first team</h2>
+        <p class="muted">Create teams first, then invite managers when you're ready.</p>
+        <button class="btn btn-primary" data-open-create-team>+ Add First Team</button>
       </div>
 
-      <nav class="bottom-nav">
-        <button class="nav-item nav-active"><span>⌂</span><small>Home</small></button>
-        <button class="nav-item"><span>👥</span><small>Teams</small></button>
-        <button class="nav-item"><span>👤</span><small>People</small></button>
-        <button class="nav-item"><span>⚙</span><small>Club</small></button>
-      </nav>
+      <div id="dashboardTeamsListWrap" class="hidden">
+        <div class="section-heading-row">
+          <div>
+            <p class="eyebrow">YOUR TEAMS</p>
+            <h2 class="section-title">Teams</h2>
+          </div>
+          <button class="text-btn add-link" data-open-create-team>+ Add Team</button>
+        </div>
+        <div id="dashboardTeamsList" class="team-list"></div>
+      </div>
     </section>
-  </main>
+  </div>
+
+  <nav class="bottom-nav">
+    <button class="nav-item nav-active" data-club-nav="home"><span>⌂</span><small>Home</small></button>
+    <button class="nav-item" data-club-nav="teams"><span>👥</span><small>Teams</small></button>
+    <button class="nav-item" data-club-nav="people"><span>👤</span><small>People</small></button>
+    <button class="nav-item" data-club-nav="club"><span>⚙</span><small>Club</small></button>
+  </nav>
+</section>
+
+<section id="teamsScreen" class="screen">
+  <header class="topbar">
+    <button class="icon-btn" data-back-dashboard aria-label="Back">←</button>
+    <div><p class="eyebrow">CLUB ADMIN</p><h2>Teams</h2></div>
+    <button class="topbar-action" data-open-create-team>+ Add Team</button>
+  </header>
+
+  <div class="content dashboard-content">
+    <div class="section-heading-row">
+      <div>
+        <p class="eyebrow">ALL TEAMS</p>
+        <h1 class="page-title">Your club teams</h1>
+      </div>
+    </div>
+    <div id="teamsScreenList" class="team-list"></div>
+    <div id="teamsScreenEmpty" class="empty-state hidden">
+      <div class="empty-icon">🏉</div>
+      <h2>No teams yet</h2>
+      <p class="muted">Create the first team for your club.</p>
+      <button class="btn btn-primary" data-open-create-team>+ Add Team</button>
+    </div>
+  </div>
+
+  <nav class="bottom-nav">
+    <button class="nav-item" data-club-nav="home"><span>⌂</span><small>Home</small></button>
+    <button class="nav-item nav-active" data-club-nav="teams"><span>👥</span><small>Teams</small></button>
+    <button class="nav-item" data-club-nav="people"><span>👤</span><small>People</small></button>
+    <button class="nav-item" data-club-nav="club"><span>⚙</span><small>Club</small></button>
+  </nav>
+</section>
+
+<section id="createTeamScreen" class="screen">
+  <header class="topbar">
+    <button class="icon-btn" data-back-from-team aria-label="Back">←</button>
+    <div><p class="eyebrow">TEAM SETUP</p><h2>Create a team</h2></div>
+  </header>
+
+  <div class="content">
+    <div class="form-card">
+      <p class="eyebrow">NEW TEAM</p>
+      <h1>Add a team</h1>
+      <p class="muted">GameDay Crew will use the age group to show the right features automatically.</p>
+
+      <label>Team name
+        <input id="teamNameInput" type="text" placeholder="e.g. U12 Gold">
+      </label>
+
+      <label>Age group
+        <select id="teamAgeInput">
+          <option value="">Choose age group...</option>
+          <option value="U9">U9</option>
+          <option value="U10">U10</option>
+          <option value="U12">U12</option>
+          <option value="U14">U14</option>
+          <option value="U16">U16</option>
+          <option value="U18">U18</option>
+        </select>
+      </label>
+
+      <label>Category
+        <select id="teamCategoryInput">
+          <option value="">Choose category...</option>
+          <option value="Boys">Boys</option>
+          <option value="Girls">Girls</option>
+          <option value="Mixed">Mixed</option>
+          <option value="Other">Other</option>
+        </select>
+      </label>
+
+      <label>Division / team label <span class="optional">(optional)</span>
+        <input id="teamDivisionInput" type="text" placeholder="e.g. Division 3, Blue, Gold">
+      </label>
+
+      <div id="ageFeatureHint" class="feature-hint hidden"></div>
+
+      <button class="btn btn-primary full-width" data-create-team>Create Team</button>
+    </div>
+  </div>
+</section>
+
+<section id="teamCreatedScreen" class="screen">
+  <header class="topbar">
+    <div><p class="eyebrow">TEAM CREATED</p><h2 id="createdTeamHeader">Team</h2></div>
+  </header>
+
+  <div class="content">
+    <div class="success-panel">
+      <div class="success-big">✓</div>
+      <p class="eyebrow">READY FOR SETUP</p>
+      <h1 id="createdTeamName">Your team is ready</h1>
+      <p id="createdTeamMeta" class="muted"></p>
+
+      <div class="next-steps">
+        <div class="next-step"><span>1</span><div><strong>Add players</strong><small>Names, jumper numbers and career games.</small></div></div>
+        <div class="next-step"><span>2</span><div><strong>Invite manager(s)</strong><small>Assign the people who will run this team.</small></div></div>
+        <div class="next-step"><span>3</span><div><strong>Check team settings</strong><small>Captain setup and age-aware features.</small></div></div>
+      </div>
+
+      <button class="btn btn-primary full-width" data-return-dashboard>Back to Club Dashboard</button>
+    </div>
+  </div>
+</section>
+</main>
   <noscript>This app requires JavaScript.</noscript>
 </body>
 </html>

@@ -71,11 +71,158 @@
     showScreen("clubDashboardScreen");
   });
 
-  document.querySelector("[data-add-first-team]")?.addEventListener("click", () => {
-    const m = document.getElementById("dashboardMessage");
-    m.classList.remove("hidden");
-    m.textContent = "Next build: create the first team, choose age group, then invite manager(s).";
+
+
+  const TEAMS_KEY = "gdc_v2_demo_teams";
+  let lastClubScreen = "clubDashboardScreen";
+
+  const getTeams = () => {
+    try { return JSON.parse(localStorage.getItem(TEAMS_KEY) || "[]"); }
+    catch { return []; }
+  };
+
+  const saveTeams = teams => localStorage.setItem(TEAMS_KEY, JSON.stringify(teams));
+
+  const teamMeta = team => {
+    const bits = [team.ageGroup, team.category];
+    if (team.division) bits.push(team.division);
+    return bits.filter(Boolean).join(" • ");
+  };
+
+  const teamCardHtml = team => `
+    <div class="team-card">
+      <div class="team-badge">${team.ageGroup || "TEAM"}</div>
+      <div>
+        <strong>${team.name}</strong>
+        <small>${teamMeta(team)} • No manager assigned yet</small>
+      </div>
+      <div class="team-arrow">›</div>
+    </div>`;
+
+  const renderTeams = () => {
+    const teams = getTeams();
+    document.getElementById("teamCountStat").textContent = String(teams.length);
+
+    const empty = document.getElementById("dashboardTeamsEmpty");
+    const wrap = document.getElementById("dashboardTeamsListWrap");
+    const list = document.getElementById("dashboardTeamsList");
+
+    if (teams.length) {
+      empty?.classList.add("hidden");
+      wrap?.classList.remove("hidden");
+      if (list) list.innerHTML = teams.map(teamCardHtml).join("");
+
+      document.getElementById("clubStatusTitle").textContent = `${teams.length} team${teams.length === 1 ? "" : "s"} set up`;
+      document.getElementById("clubStatusText").textContent = "Next, add players and invite the people who will manage each team.";
+    } else {
+      empty?.classList.remove("hidden");
+      wrap?.classList.add("hidden");
+      if (list) list.innerHTML = "";
+      document.getElementById("clubStatusTitle").textContent = "Your club is ready to set up";
+      document.getElementById("clubStatusText").textContent = "Next, add your first team and invite managers.";
+    }
+
+    const teamsScreenList = document.getElementById("teamsScreenList");
+    const teamsScreenEmpty = document.getElementById("teamsScreenEmpty");
+    if (teams.length) {
+      if (teamsScreenList) teamsScreenList.innerHTML = teams.map(teamCardHtml).join("");
+      teamsScreenEmpty?.classList.add("hidden");
+    } else {
+      if (teamsScreenList) teamsScreenList.innerHTML = "";
+      teamsScreenEmpty?.classList.remove("hidden");
+    }
+  };
+
+  const openCreateTeam = () => {
+    lastClubScreen = document.getElementById("teamsScreen")?.classList.contains("screen-active")
+      ? "teamsScreen" : "clubDashboardScreen";
+    document.getElementById("teamNameInput").value = "";
+    document.getElementById("teamAgeInput").value = "";
+    document.getElementById("teamCategoryInput").value = "";
+    document.getElementById("teamDivisionInput").value = "";
+    document.getElementById("ageFeatureHint")?.classList.add("hidden");
+    showScreen("createTeamScreen");
+  };
+
+  document.querySelectorAll("[data-open-create-team]").forEach(btn => {
+    btn.addEventListener("click", openCreateTeam);
   });
+
+  document.querySelector("[data-back-from-team]")?.addEventListener("click", () => showScreen(lastClubScreen));
+  document.querySelector("[data-back-dashboard]")?.addEventListener("click", () => showScreen("clubDashboardScreen"));
+  document.querySelector("[data-return-dashboard]")?.addEventListener("click", () => {
+    renderTeams();
+    showScreen("clubDashboardScreen");
+  });
+
+  document.getElementById("teamAgeInput")?.addEventListener("change", event => {
+    const age = event.target.value;
+    const hint = document.getElementById("ageFeatureHint");
+    if (!age) {
+      hint?.classList.add("hidden");
+      return;
+    }
+
+    let text = "";
+    if (["U9","U10","U12"].includes(age)) {
+      text = `<strong>${age} setup</strong>GameDay Crew will use weekly rotating captains and captain fairness tracking for this team.`;
+    } else {
+      text = `<strong>${age} setup</strong>GameDay Crew will use season Captains and Vice Captains, with support for multiple of each.`;
+    }
+
+    hint.innerHTML = text;
+    hint.classList.remove("hidden");
+  });
+
+  document.querySelector("[data-create-team]")?.addEventListener("click", () => {
+    const name = document.getElementById("teamNameInput")?.value.trim();
+    const ageGroup = document.getElementById("teamAgeInput")?.value;
+    const category = document.getElementById("teamCategoryInput")?.value;
+    const division = document.getElementById("teamDivisionInput")?.value.trim() || "";
+
+    if (!name) return alert("Enter a team name first.");
+    if (!ageGroup) return alert("Choose the team's age group.");
+    if (!category) return alert("Choose the team category.");
+
+    const team = {
+      id: "team_" + Date.now(),
+      name,
+      ageGroup,
+      category,
+      division,
+      createdAt: new Date().toISOString()
+    };
+
+    const teams = getTeams();
+    teams.push(team);
+    saveTeams(teams);
+
+    document.getElementById("createdTeamHeader").textContent = team.name;
+    document.getElementById("createdTeamName").textContent = `${team.name} is ready`;
+    document.getElementById("createdTeamMeta").textContent = teamMeta(team);
+
+    renderTeams();
+    showScreen("teamCreatedScreen");
+  });
+
+  document.querySelectorAll("[data-club-nav]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const target = btn.dataset.clubNav;
+      if (target === "home") {
+        renderTeams();
+        showScreen("clubDashboardScreen");
+      } else if (target === "teams") {
+        renderTeams();
+        showScreen("teamsScreen");
+      } else if (target === "people") {
+        alert("People & Invitations is coming after team creation.");
+      } else if (target === "club") {
+        alert("Club settings will be added after teams and people.");
+      }
+    });
+  });
+
+  renderTeams();
 
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
