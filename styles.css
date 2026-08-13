@@ -828,3 +828,48 @@ input:focus,select:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(244,
   .awards-timeline-item{grid-template-columns:50px 1fr}
   .awards-timeline-badge{grid-column:2;justify-self:start}
 }
+
+/* V2.12 Season Honours / Golden Boot */
+.season-honour-card{
+  border-color:#F1D179;
+  background:linear-gradient(135deg,#FFFDF7,#FFF7D9)
+}
+.golden-boot-icon,.season-honours-icon{
+  background:#FFF1B8
+}
+.golden-boot-leaders{
+  display:flex;flex-wrap:wrap;gap:8px;margin-top:10px
+}
+.golden-boot-chip{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:7px 10px;border-radius:999px;
+  background:#fff;border:1px solid #EBC65C;
+  color:var(--navy);font-size:11px;font-weight:900
+}
+.golden-boot-chip .golden-boot-number{
+  display:inline-grid;place-items:center;
+  min-width:25px;height:25px;padding:0 6px;
+  border-radius:8px;background:var(--navy);color:var(--gold);
+  font-size:10px
+}
+.golden-boot-chip small{
+  color:var(--muted);font-size:10px;font-weight:700
+}
+.golden-boot-empty{
+  color:var(--muted);font-size:11px
+}
+.season-honours-panel{
+  background:linear-gradient(135deg,#FFFDF7,#FFF7D9);
+  border:1px solid #F1D179;border-radius:18px;padding:16px;
+  box-shadow:0 6px 20px rgba(13,34,68,.04)
+}
+.season-honours-heading{
+  display:flex;gap:12px;align-items:flex-start
+}
+.season-honours-icon{
+  width:48px;height:48px;border-radius:13px;
+  display:grid;place-items:center;font-size:24px;flex:0 0 48px
+}
+.golden-boot-leaders-large .golden-boot-chip{
+  padding:9px 12px;font-size:12px
+}

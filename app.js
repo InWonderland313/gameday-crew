@@ -1353,6 +1353,7 @@
     renderNextGameHome();
     renderMilestoneWatchHome();
     renderLeadershipHome();
+    renderGoldenBootHome();
     renderAwardsHome();
   };
 
@@ -1460,6 +1461,67 @@
       score: goals * 6 + points,
       awards
     };
+  };
+
+
+  const currentGoldenBoot = () => {
+    const players = [...playersForTeam(currentTeamId)];
+    const ranked = players.map(player => ({
+      player,
+      goals: seasonStatsForPlayer(player.id).goals
+    }));
+
+    const leadingGoals = ranked.reduce((max, item) =>
+      Math.max(max, Number(item.goals || 0))
+    , 0);
+
+    if (leadingGoals <= 0) {
+      return {goals: 0, leaders: []};
+    }
+
+    return {
+      goals: leadingGoals,
+      leaders: ranked
+        .filter(item => Number(item.goals || 0) === leadingGoals)
+        .sort((a, b) =>
+          Number(a.player.number || 999) - Number(b.player.number || 999) ||
+          a.player.name.localeCompare(b.player.name)
+        )
+        .map(item => item.player)
+    };
+  };
+
+  const goldenBootLeaderHtml = (result, large = false) => {
+    if (!result.leaders.length) {
+      return `<span class="golden-boot-empty">No goals recorded yet.</span>`;
+    }
+
+    return result.leaders.map(player => `
+      <span class="golden-boot-chip${large ? " golden-boot-chip-large" : ""}">
+        <span class="golden-boot-number">${player.number || "—"}</span>
+        <span>${player.name}</span>
+        <small>${result.goals} goal${result.goals === 1 ? "" : "s"}</small>
+      </span>
+    `).join("");
+  };
+
+  const renderGoldenBootHome = () => {
+    const result = currentGoldenBoot();
+    const text = document.getElementById("goldenBootHomeText");
+    const wrap = document.getElementById("goldenBootHomeLeaders");
+
+    if (!text || !wrap) return;
+
+    if (!result.leaders.length) {
+      text.textContent = "No Golden Boot leader yet — goals will appear after completed games.";
+      wrap.innerHTML = goldenBootLeaderHtml(result);
+      return;
+    }
+
+    text.textContent = result.leaders.length > 1
+      ? `Joint leaders on ${result.goals} goal${result.goals === 1 ? "" : "s"}.`
+      : `Leading goal kicker with ${result.goals} goal${result.goals === 1 ? "" : "s"}.`;
+    wrap.innerHTML = goldenBootLeaderHtml(result);
   };
 
   const leadershipLabelForPlayer = playerId => {
@@ -1717,6 +1779,22 @@
     document.getElementById("statsGoalsTotal").textContent = String(totals.goals);
     document.getElementById("statsPointsTotal").textContent = String(totals.points);
     document.getElementById("statsScoreTotal").textContent = String(totals.score);
+
+    const goldenBoot = currentGoldenBoot();
+    const statsGoldenBootText = document.getElementById("statsGoldenBootText");
+    const statsGoldenBootLeaders = document.getElementById("statsGoldenBootLeaders");
+
+    if (statsGoldenBootText && statsGoldenBootLeaders) {
+      if (!goldenBoot.leaders.length) {
+        statsGoldenBootText.textContent =
+          "No Golden Boot leader yet — goals will appear after completed games.";
+      } else {
+        statsGoldenBootText.textContent = goldenBoot.leaders.length > 1
+          ? `Joint leaders on ${goldenBoot.goals} goal${goldenBoot.goals === 1 ? "" : "s"}.`
+          : `Leading goal kicker with ${goldenBoot.goals} goal${goldenBoot.goals === 1 ? "" : "s"}.`;
+      }
+      statsGoldenBootLeaders.innerHTML = goldenBootLeaderHtml(goldenBoot, true);
+    }
 
     const leaderboard = players
       .map(player => ({player, stats: seasonStatsForPlayer(player.id)}))
@@ -2091,9 +2169,26 @@
       {text: `Completed games: ${games.length}`},
       {text: `Goals: ${totals.goals}`},
       {text: `Points: ${totals.points}`},
-      {text: `Team score: ${totals.score}`, gap: 22},
-      {text: "Player Totals", size: 14, bold: true, gap: 20}
+      {text: `Team score: ${totals.score}`, gap: 22}
     ];
+
+    const goldenBoot = currentGoldenBoot();
+    lines.push({text: "Season Honours", size: 14, bold: true, gap: 20});
+
+    if (!goldenBoot.leaders.length) {
+      lines.push({text: "Current Golden Boot: No goals recorded yet.", gap: 22});
+    } else {
+      const leaderNames = goldenBoot.leaders
+        .map(player => `${player.number ? `#${player.number} ` : ""}${player.name}`)
+        .join(", ");
+      const label = goldenBoot.leaders.length > 1 ? "Current Golden Boot leaders" : "Current Golden Boot";
+      lines.push({
+        text: `${label}: ${leaderNames} - ${goldenBoot.goals} goal${goldenBoot.goals === 1 ? "" : "s"}`,
+        gap: 22
+      });
+    }
+
+    lines.push({text: "Player Totals", size: 14, bold: true, gap: 20});
 
     if (!players.length) {
       lines.push({text: "No players on the current team.", gap: 22});
