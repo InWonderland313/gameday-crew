@@ -320,7 +320,7 @@
           <span class="chevron">›</span>
         </button>
 
-        <button class="setup-action-card" data-manager-placeholder>
+        <button class="setup-action-card" data-open-team-managers>
           <span class="setup-action-icon">👤</span>
           <span>
             <strong>Managers</strong>
@@ -329,7 +329,7 @@
           <span class="chevron">›</span>
         </button>
 
-        <button class="setup-action-card" data-settings-placeholder>
+        <button class="setup-action-card" data-open-team-settings>
           <span class="setup-action-icon">⚙</span>
           <span>
             <strong>Team Settings</strong>
@@ -391,12 +391,266 @@
       <div class="section-heading-row">
         <div>
           <p class="eyebrow">TEAM LIST</p>
-          <h1 class="page-title"><span id="playersCountHeading">0</span> players</h1>
+          <h1 class="page-title"><span id="playersCountHeading">0</span> <span id="playersCountLabel">players</span></h1>
         </div>
         <button class="text-btn add-link" data-show-add-player>+ Add Player</button>
       </div>
 
       <div id="playersList" class="players-list"></div>
+    </div>
+  </div>
+</section>
+
+
+<section id="teamManagersScreen" class="screen">
+  <header class="topbar">
+    <button class="icon-btn" data-back-team-admin-from-managers aria-label="Back">←</button>
+    <div>
+      <p class="eyebrow">TEAM ACCESS</p>
+      <h2 id="managerScreenTeamName">Managers</h2>
+    </div>
+    <button class="topbar-action" data-show-team-invite>+ Invite</button>
+  </header>
+
+  <div class="content dashboard-content">
+    <div id="teamInvitePanel" class="form-card hidden">
+      <div class="section-heading-row">
+        <div>
+          <p class="eyebrow">INVITE PERSON</p>
+          <h2 class="section-title">Give team access</h2>
+        </div>
+        <button class="text-btn" data-cancel-team-invite>Cancel</button>
+      </div>
+
+      <label>Email address
+        <input id="teamInviteEmailInput" type="email" placeholder="manager@example.com">
+      </label>
+
+      <label>Role
+        <select id="teamInviteRoleInput">
+          <option value="Team Manager">Team Manager</option>
+          <option value="Team Helper">Team Helper</option>
+        </select>
+      </label>
+
+      <div class="feature-hint">
+        <strong>What can they do?</strong>
+        <span id="teamInviteRoleHint">Team Managers can run and edit this team, including roster, games, awards and stats.</span>
+      </div>
+
+      <button class="btn btn-primary full-width" data-save-team-invite>Send Invite</button>
+      <p class="demo-note">Demo build: this records a pending invite locally. Real invitation emails come when cloud accounts are connected.</p>
+    </div>
+
+    <div id="teamManagersEmpty" class="empty-state">
+      <div class="empty-icon">👤</div>
+      <h2>No one has team access yet</h2>
+      <p class="muted">Invite a Team Manager or Team Helper.</p>
+      <button class="btn btn-primary" data-show-team-invite>+ Invite First Person</button>
+    </div>
+
+    <div id="teamManagersListWrap" class="hidden">
+      <div class="section-heading-row">
+        <div>
+          <p class="eyebrow">TEAM ACCESS</p>
+          <h1 class="page-title"><span id="teamAccessCount">0</span> <span id="teamAccessLabel">people</span></h1>
+        </div>
+        <button class="text-btn add-link" data-show-team-invite>+ Invite</button>
+      </div>
+      <div id="teamManagersList" class="people-list"></div>
+    </div>
+  </div>
+</section>
+
+<section id="peopleScreen" class="screen">
+  <header class="topbar">
+    <button class="icon-btn" data-back-dashboard-from-people aria-label="Back">←</button>
+    <div>
+      <p class="eyebrow">CLUB ADMIN</p>
+      <h2>People</h2>
+    </div>
+    <button class="topbar-action" data-show-club-invite>+ Invite Person</button>
+  </header>
+
+  <div class="content dashboard-content">
+    <div id="clubInvitePanel" class="form-card hidden">
+      <div class="section-heading-row">
+        <div>
+          <p class="eyebrow">INVITE PERSON</p>
+          <h2 class="section-title">Add someone to the club</h2>
+        </div>
+        <button class="text-btn" data-cancel-club-invite>Cancel</button>
+      </div>
+
+      <label>Email address
+        <input id="clubInviteEmailInput" type="email" placeholder="person@example.com">
+      </label>
+
+      <label>Role
+        <select id="clubInviteRoleInput">
+          <option value="Club Admin">Club Admin</option>
+          <option value="Team Manager">Team Manager</option>
+          <option value="Team Helper">Team Helper</option>
+        </select>
+      </label>
+
+      <label id="clubInviteTeamLabel" class="hidden">Team
+        <select id="clubInviteTeamInput"></select>
+      </label>
+
+      <div class="feature-hint">
+        <strong>Access</strong>
+        <span id="clubInviteRoleHint">Club Admins can manage the whole club, including teams, people and season administration.</span>
+      </div>
+
+      <button class="btn btn-primary full-width" data-save-club-invite>Send Invite</button>
+      <p class="demo-note">Demo build: invitation is stored locally with Pending status.</p>
+    </div>
+
+    <div class="people-summary-grid">
+      <div class="mini-stat-card">
+        <strong id="clubAdminPeopleStat">1</strong>
+        <small>Club Admins</small>
+      </div>
+      <div class="mini-stat-card">
+        <strong id="clubManagerPeopleStat">0</strong>
+        <small>Team Managers</small>
+      </div>
+      <div class="mini-stat-card">
+        <strong id="clubHelperPeopleStat">0</strong>
+        <small>Team Helpers</small>
+      </div>
+      <div class="mini-stat-card">
+        <strong id="pendingInviteStat">0</strong>
+        <small>Pending</small>
+      </div>
+    </div>
+
+    <div id="clubPeopleEmpty" class="empty-state">
+      <div class="empty-icon">👥</div>
+      <h2>No invitations yet</h2>
+      <p class="muted">Invite another Club Admin, Team Manager or Team Helper.</p>
+      <button class="btn btn-primary" data-show-club-invite>+ Invite Person</button>
+    </div>
+
+    <div id="clubPeopleListWrap" class="hidden">
+      <div class="section-heading-row">
+        <div>
+          <p class="eyebrow">CLUB PEOPLE</p>
+          <h1 class="page-title">Invitations & access</h1>
+        </div>
+      </div>
+      <div id="clubPeopleList" class="people-list"></div>
+    </div>
+  </div>
+
+  <nav class="bottom-nav">
+    <button class="nav-item" data-club-nav="home"><span>⌂</span><small>Home</small></button>
+    <button class="nav-item" data-club-nav="teams"><span>👥</span><small>Teams</small></button>
+    <button class="nav-item nav-active" data-club-nav="people"><span>👤</span><small>People</small></button>
+    <button class="nav-item" data-club-nav="club"><span>⚙</span><small>Club</small></button>
+  </nav>
+</section>
+
+
+<section id="teamSettingsScreen" class="screen">
+  <header class="topbar">
+    <button class="icon-btn" data-back-team-admin-from-settings aria-label="Back">←</button>
+    <div>
+      <p class="eyebrow">TEAM SETUP</p>
+      <h2 id="teamSettingsScreenTitle">Team Settings</h2>
+    </div>
+  </header>
+
+  <div class="content dashboard-content">
+    <div id="leadershipJuniorPanel" class="settings-panel hidden">
+      <div class="settings-panel-header">
+        <div class="settings-icon">🔄</div>
+        <div>
+          <p class="eyebrow">LEADERSHIP</p>
+          <h1>Weekly rotating captains</h1>
+          <p class="muted">This age group chooses captains game by game rather than setting them for the whole season.</p>
+        </div>
+      </div>
+
+      <div class="feature-hint">
+        <strong>How GameDay Crew will handle it</strong>
+        When you start each game, you'll choose that day's captain(s). GameDay Crew will track who has already had a turn and show players who are yet to captain first.
+      </div>
+
+      <div class="setting-row">
+        <div>
+          <strong>Captain fairness tracking</strong>
+          <small>Track how many times each player has captained this season.</small>
+        </div>
+        <span class="status-pill accepted">On</span>
+      </div>
+
+      <div class="setting-row">
+        <div>
+          <strong>Season Captains / Vice Captains</strong>
+          <small>Hidden for this age group.</small>
+        </div>
+        <span class="status-pill">Not used</span>
+      </div>
+    </div>
+
+    <div id="leadershipSeniorPanel" class="settings-panel hidden">
+      <div class="settings-panel-header">
+        <div class="settings-icon">🏅</div>
+        <div>
+          <p class="eyebrow">LEADERSHIP</p>
+          <h1>Season leadership</h1>
+          <p class="muted">Choose as many Captains and Vice Captains as your team needs.</p>
+        </div>
+      </div>
+
+      <div id="leadershipNoPlayers" class="empty-state compact-empty hidden">
+        <div class="empty-icon">🧒</div>
+        <h2>Add players first</h2>
+        <p class="muted">Captains and Vice Captains are selected from the team list.</p>
+        <button class="btn btn-primary" data-settings-go-players>Go to Players</button>
+      </div>
+
+      <div id="leadershipPlayerControls" class="hidden">
+        <div class="leadership-group">
+          <div class="leadership-heading">
+            <div>
+              <p class="eyebrow">CAPTAINS</p>
+              <h2>Captain(s)</h2>
+            </div>
+            <span id="captainCountPill" class="status-pill accepted">0 selected</span>
+          </div>
+          <p class="muted small-copy">Select one or more players. There is no artificial limit.</p>
+          <div id="captainPlayerChoices" class="player-choice-grid"></div>
+        </div>
+
+        <div class="leadership-group">
+          <div class="leadership-heading">
+            <div>
+              <p class="eyebrow">VICE CAPTAINS</p>
+              <h2>Vice Captain(s)</h2>
+            </div>
+            <span id="viceCountPill" class="status-pill accepted">0 selected</span>
+          </div>
+          <p class="muted small-copy">Select one or more players. A player can't be both Captain and Vice Captain.</p>
+          <div id="vicePlayerChoices" class="player-choice-grid"></div>
+        </div>
+
+        <button class="btn btn-primary full-width" data-save-leadership>Save Leadership</button>
+        <div id="leadershipSavedMessage" class="saved-message hidden">✓ Leadership saved</div>
+      </div>
+    </div>
+
+    <div class="settings-panel">
+      <div class="settings-panel-header">
+        <div class="settings-icon">🏁</div>
+        <div>
+          <p class="eyebrow">MORE TEAM SETUP</p>
+          <h2>More settings will live here</h2>
+          <p class="muted">Awards setup, milestone preferences and other team options are coming in later builds.</p>
+        </div>
+      </div>
     </div>
   </div>
 </section>

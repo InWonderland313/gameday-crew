@@ -89,15 +89,29 @@
     return bits.filter(Boolean).join(" • ");
   };
 
-  const teamCardHtml = team => `
+  const teamCardHtml = team => {
+    const invites = (() => {
+      try { return JSON.parse(localStorage.getItem("gdc_v2_demo_invites") || "[]"); }
+      catch { return []; }
+    })();
+    const managers = invites.filter(i => i.teamId === team.id && i.role === "Team Manager");
+    const helperCount = invites.filter(i => i.teamId === team.id && i.role === "Team Helper").length;
+    let accessText = "No manager assigned yet";
+    if (managers.length === 1) accessText = `Manager: ${managers[0].email} (${managers[0].status})`;
+    if (managers.length > 1) accessText = `${managers.length} managers invited`;
+    if (!managers.length && helperCount) accessText = `${helperCount} helper${helperCount === 1 ? "" : "s"} invited`;
+    if (managers.length && helperCount) accessText += ` • ${helperCount} helper${helperCount === 1 ? "" : "s"}`;
+
+    return `
     <button class="team-card" data-team-id="${team.id}">
       <div class="team-badge">${team.ageGroup || "TEAM"}</div>
       <div>
         <strong>${team.name}</strong>
-        <small>${teamMeta(team)} • No manager assigned yet</small>
+        <small>${teamMeta(team)} • ${accessText}</small>
       </div>
       <div class="team-arrow">›</div>
     </button>`;
+  };
 
   const renderTeams = () => {
     const teams = getTeams();
@@ -218,7 +232,8 @@
         renderTeams();
         showScreen("teamsScreen");
       } else if (target === "people") {
-        alert("People & Invitations is coming after team creation.");
+        renderClubPeople();
+        showScreen("peopleScreen");
       } else if (target === "club") {
         alert("Club settings will be added after teams and people.");
       }
@@ -259,6 +274,7 @@
       : "Season Captains and Vice Captains, including multiple leaders.";
 
     renderTeamAdmin();
+    if (typeof renderManagerCounts === "function") renderManagerCounts();
     showScreen("teamAdminScreen");
   };
 
@@ -284,6 +300,8 @@
       status.querySelector("strong").textContent = "Team setup isn't finished yet";
       status.querySelector("small").textContent = "Add the player list so this team is ready for game day.";
     }
+
+    if (typeof updateTeamSettingsSummary === "function") updateTeamSettingsSummary();
   };
 
   const playerCardHtml = p => `
@@ -302,6 +320,8 @@
     const wrap = document.getElementById("playersListWrap");
     const list = document.getElementById("playersList");
     document.getElementById("playersCountHeading").textContent = String(players.length);
+    const playerCountLabel = document.getElementById("playersCountLabel");
+    if (playerCountLabel) playerCountLabel.textContent = players.length === 1 ? "player" : "players";
 
     if (players.length) {
       empty.classList.add("hidden");
@@ -430,17 +450,478 @@
     showScreen("teamPlayersScreen");
   });
 
-  document.querySelector("[data-manager-placeholder]")?.addEventListener("click", () => {
-    const m = document.getElementById("teamAdminMessage");
-    m.classList.remove("hidden");
-    m.textContent = "People & manager invitations are coming next.";
+
+
+
+  const INVITES_KEY = "gdc_v2_demo_invites";
+
+  const getInvites = () => {
+    try { return JSON.parse(localStorage.getItem(INVITES_KEY) || "[]"); }
+    catch { return []; }
+  };
+
+  const saveInvites = invites => localStorage.setItem(INVITES_KEY, JSON.stringify(invites));
+
+  const isValidEmail = email => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+  const roleIcon = role => {
+    if (role === "Club Admin") return "🛡️";
+    if (role === "Team Helper") return "🙋";
+    return "👤";
+  };
+
+  const roleHintText = role => {
+    if (role === "Club Admin") {
+      return "Club Admins can manage the whole club, including teams, people and season administration.";
+    }
+    if (role === "Team Helper") {
+      return "Team Helpers can assist with game-day scoring, interchange and awards, but cannot change the roster or team setup.";
+    }
+    return "Team Managers can run and edit their allocated team, including roster, games, awards and stats.";
+  };
+
+  const inviteCardHtml = invite => {
+    const team = invite.teamId ? getTeams().find(t => t.id === invite.teamId) : null;
+    const teamLine = team ? ` • ${team.name}` : "";
+    return `
+      <div class="person-card">
+        <div class="person-icon">${roleIcon(invite.role)}</div>
+        <div>
+          <strong>${invite.email}</strong>
+          <small>${invite.role}${teamLine}</small>
+        </div>
+        <div class="person-actions">
+          <span class="status-pill ${invite.status === "Accepted" ? "accepted" : ""}">${invite.status}</span>
+          <button class="revoke-btn" data-revoke-invite="${invite.id}">Remove</button>
+        </div>
+      </div>`;
+  };
+
+  const invitesForTeam = teamId => getInvites().filter(i => i.teamId === teamId);
+
+  const renderTeamManagers = () => {
+    const invites = currentTeamId ? invitesForTeam(currentTeamId) : [];
+    const empty = document.getElementById("teamManagersEmpty");
+    const wrap = document.getElementById("teamManagersListWrap");
+    const list = document.getElementById("teamManagersList");
+    const count = document.getElementById("teamAccessCount");
+    const label = document.getElementById("teamAccessLabel");
+
+    if (count) count.textContent = String(invites.length);
+    if (label) label.textContent = invites.length === 1 ? "person" : "people";
+
+    if (invites.length) {
+      empty?.classList.add("hidden");
+      wrap?.classList.remove("hidden");
+      if (list) list.innerHTML = invites.map(inviteCardHtml).join("");
+    } else {
+      empty?.classList.remove("hidden");
+      wrap?.classList.add("hidden");
+      if (list) list.innerHTML = "";
+    }
+  };
+
+  const renderClubPeople = () => {
+    const invites = getInvites();
+    const empty = document.getElementById("clubPeopleEmpty");
+    const wrap = document.getElementById("clubPeopleListWrap");
+    const list = document.getElementById("clubPeopleList");
+
+    const admins = invites.filter(i => i.role === "Club Admin");
+    const managers = invites.filter(i => i.role === "Team Manager");
+    const helpers = invites.filter(i => i.role === "Team Helper");
+    const pending = invites.filter(i => i.status === "Pending");
+
+    document.getElementById("clubAdminPeopleStat").textContent = String(1 + admins.length);
+    document.getElementById("clubManagerPeopleStat").textContent = String(managers.length);
+    document.getElementById("clubHelperPeopleStat").textContent = String(helpers.length);
+    document.getElementById("pendingInviteStat").textContent = String(pending.length);
+
+    if (invites.length) {
+      empty?.classList.add("hidden");
+      wrap?.classList.remove("hidden");
+      if (list) list.innerHTML = invites.map(inviteCardHtml).join("");
+    } else {
+      empty?.classList.remove("hidden");
+      wrap?.classList.add("hidden");
+      if (list) list.innerHTML = "";
+    }
+  };
+
+  const renderManagerCounts = () => {
+    const invites = getInvites();
+    const managersForCurrent = currentTeamId
+      ? invites.filter(i => i.teamId === currentTeamId && i.role === "Team Manager")
+      : [];
+    const teamManagerStat = document.querySelector("#teamAdminScreen .team-stat-grid .stat-card:nth-child(2) strong");
+    if (teamManagerStat) teamManagerStat.textContent = String(managersForCurrent.length);
+
+    const teamManagerSummary = document.querySelector("[data-open-team-managers] small");
+    if (teamManagerSummary) {
+      const teamInvites = currentTeamId ? invitesForTeam(currentTeamId) : [];
+      if (!teamInvites.length) {
+        teamManagerSummary.textContent = "Invite the people who will manage this team.";
+      } else {
+        const managers = teamInvites.filter(i => i.role === "Team Manager").length;
+        const helpers = teamInvites.filter(i => i.role === "Team Helper").length;
+        const bits = [];
+        if (managers) bits.push(`${managers} manager${managers === 1 ? "" : "s"}`);
+        if (helpers) bits.push(`${helpers} helper${helpers === 1 ? "" : "s"}`);
+        teamManagerSummary.textContent = `${bits.join(" • ")} invited.`;
+      }
+    }
+
+    const uniqueManagers = new Set(
+      invites.filter(i => i.role === "Team Manager").map(i => i.email.toLowerCase())
+    );
+    const clubManagerStat = document.querySelector("#clubDashboardScreen .stat-grid .stat-card:nth-child(3) strong");
+    if (clubManagerStat) clubManagerStat.textContent = String(uniqueManagers.size);
+  };
+
+  const fillClubInviteTeams = () => {
+    const select = document.getElementById("clubInviteTeamInput");
+    if (!select) return;
+    const teams = getTeams();
+    select.innerHTML = teams.length
+      ? teams.map(t => `<option value="${t.id}">${t.name}</option>`).join("")
+      : '<option value="">No teams created yet</option>';
+  };
+
+  const updateClubInviteRoleUI = () => {
+    const role = document.getElementById("clubInviteRoleInput")?.value || "Club Admin";
+    const teamLabel = document.getElementById("clubInviteTeamLabel");
+    const hint = document.getElementById("clubInviteRoleHint");
+    if (hint) hint.textContent = roleHintText(role);
+
+    if (role === "Club Admin") {
+      teamLabel?.classList.add("hidden");
+    } else {
+      fillClubInviteTeams();
+      teamLabel?.classList.remove("hidden");
+    }
+  };
+
+  document.querySelector("[data-open-team-managers]")?.addEventListener("click", () => {
+    const team = getCurrentTeam();
+    if (!team) return;
+    document.getElementById("managerScreenTeamName").textContent = `${team.name} Access`;
+    renderTeamManagers();
+    showScreen("teamManagersScreen");
   });
 
-  document.querySelector("[data-settings-placeholder]")?.addEventListener("click", () => {
-    const m = document.getElementById("teamAdminMessage");
-    m.classList.remove("hidden");
-    m.textContent = "Team Settings will be added after players and managers.";
+  document.querySelector("[data-back-team-admin-from-managers]")?.addEventListener("click", () => {
+    document.getElementById("teamInvitePanel")?.classList.add("hidden");
+    renderManagerCounts();
+    renderTeamAdmin();
+    showScreen("teamAdminScreen");
   });
+
+  const showTeamInvitePanel = () => {
+    document.getElementById("teamInviteEmailInput").value = "";
+    document.getElementById("teamInviteRoleInput").value = "Team Manager";
+    document.getElementById("teamInviteRoleHint").textContent = roleHintText("Team Manager");
+    document.getElementById("teamInvitePanel")?.classList.remove("hidden");
+    document.getElementById("teamInviteEmailInput")?.focus();
+  };
+
+  document.querySelectorAll("[data-show-team-invite]").forEach(btn => btn.addEventListener("click", showTeamInvitePanel));
+
+  document.querySelector("[data-cancel-team-invite]")?.addEventListener("click", () => {
+    document.getElementById("teamInvitePanel")?.classList.add("hidden");
+  });
+
+  document.getElementById("teamInviteRoleInput")?.addEventListener("change", event => {
+    document.getElementById("teamInviteRoleHint").textContent = roleHintText(event.target.value);
+  });
+
+  document.querySelector("[data-save-team-invite]")?.addEventListener("click", () => {
+    const email = document.getElementById("teamInviteEmailInput")?.value.trim().toLowerCase();
+    const role = document.getElementById("teamInviteRoleInput")?.value || "Team Manager";
+    if (!email || !isValidEmail(email)) return alert("Enter a valid email address.");
+    if (!currentTeamId) return alert("No team selected.");
+
+    const invites = getInvites();
+    if (invites.some(i => i.email.toLowerCase() === email && i.teamId === currentTeamId && i.role === role)) {
+      return alert("That person already has this invitation for the team.");
+    }
+
+    invites.push({
+      id: "invite_" + Date.now(),
+      email,
+      role,
+      teamId: currentTeamId,
+      status: "Pending",
+      createdAt: new Date().toISOString()
+    });
+    saveInvites(invites);
+
+    document.getElementById("teamInvitePanel")?.classList.add("hidden");
+    renderTeamManagers();
+    renderManagerCounts();
+    renderTeams();
+  });
+
+  const showClubInvitePanel = () => {
+    document.getElementById("clubInviteEmailInput").value = "";
+    document.getElementById("clubInviteRoleInput").value = "Club Admin";
+    updateClubInviteRoleUI();
+    document.getElementById("clubInvitePanel")?.classList.remove("hidden");
+    document.getElementById("clubInviteEmailInput")?.focus();
+  };
+
+  document.querySelectorAll("[data-show-club-invite]").forEach(btn => btn.addEventListener("click", showClubInvitePanel));
+
+  document.querySelector("[data-cancel-club-invite]")?.addEventListener("click", () => {
+    document.getElementById("clubInvitePanel")?.classList.add("hidden");
+  });
+
+  document.getElementById("clubInviteRoleInput")?.addEventListener("change", updateClubInviteRoleUI);
+
+  document.querySelector("[data-save-club-invite]")?.addEventListener("click", () => {
+    const email = document.getElementById("clubInviteEmailInput")?.value.trim().toLowerCase();
+    const role = document.getElementById("clubInviteRoleInput")?.value || "Club Admin";
+    const teamId = role === "Club Admin" ? null : (document.getElementById("clubInviteTeamInput")?.value || null);
+
+    if (!email || !isValidEmail(email)) return alert("Enter a valid email address.");
+    if (role !== "Club Admin" && !teamId) return alert("Choose a team for this person.");
+
+    const invites = getInvites();
+    if (invites.some(i => i.email.toLowerCase() === email && i.role === role && i.teamId === teamId)) {
+      return alert("That invitation already exists.");
+    }
+
+    invites.push({
+      id: "invite_" + Date.now(),
+      email,
+      role,
+      teamId,
+      status: "Pending",
+      createdAt: new Date().toISOString()
+    });
+    saveInvites(invites);
+
+    document.getElementById("clubInvitePanel")?.classList.add("hidden");
+    renderClubPeople();
+    renderManagerCounts();
+    renderTeams();
+  });
+
+  document.addEventListener("click", event => {
+    const revoke = event.target.closest("[data-revoke-invite]");
+    if (!revoke) return;
+
+    const invites = getInvites();
+    const invite = invites.find(i => i.id === revoke.dataset.revokeInvite);
+    if (!invite) return;
+
+    if (!confirm(`Remove access/invitation for ${invite.email}?`)) return;
+
+    saveInvites(invites.filter(i => i.id !== invite.id));
+    renderTeamManagers();
+    renderClubPeople();
+    renderManagerCounts();
+    renderTeams();
+  });
+
+  document.querySelector("[data-back-dashboard-from-people]")?.addEventListener("click", () => {
+    document.getElementById("clubInvitePanel")?.classList.add("hidden");
+    renderTeams();
+    showScreen("clubDashboardScreen");
+  });
+
+  renderManagerCounts();
+
+
+  const TEAM_SETTINGS_KEY = "gdc_v2_demo_team_settings";
+  let workingCaptains = [];
+  let workingViceCaptains = [];
+
+  const getTeamSettings = () => {
+    try { return JSON.parse(localStorage.getItem(TEAM_SETTINGS_KEY) || "{}"); }
+    catch { return {}; }
+  };
+
+  const saveTeamSettings = settings => {
+    localStorage.setItem(TEAM_SETTINGS_KEY, JSON.stringify(settings));
+  };
+
+  const settingsForCurrentTeam = () => {
+    const all = getTeamSettings();
+    return all[currentTeamId] || { captains: [], viceCaptains: [] };
+  };
+
+  const leadershipNameList = ids => {
+    const players = currentTeamId ? playersForTeam(currentTeamId) : [];
+    return ids.map(id => players.find(p => p.id === id)?.name).filter(Boolean);
+  };
+
+  const leadershipSummaryText = () => {
+    const team = getCurrentTeam();
+    if (!team) return "Age-aware captain and game settings.";
+
+    if (["U9","U10","U12"].includes(team.ageGroup)) {
+      return "Weekly rotating captains and captain fairness tracking.";
+    }
+
+    const settings = settingsForCurrentTeam();
+    const captains = leadershipNameList(settings.captains || []);
+    const vice = leadershipNameList(settings.viceCaptains || []);
+
+    if (!captains.length && !vice.length) {
+      return "Season Captains and Vice Captains, including multiple leaders.";
+    }
+
+    const bits = [];
+    if (captains.length) bits.push(`${captains.length} Captain${captains.length === 1 ? "" : "s"}`);
+    if (vice.length) bits.push(`${vice.length} Vice Captain${vice.length === 1 ? "" : "s"}`);
+    return bits.join(" • ") + " set.";
+  };
+
+  const updateTeamSettingsSummary = () => {
+    const el = document.getElementById("teamSettingsSummary");
+    if (el) el.textContent = leadershipSummaryText();
+  };
+
+  const playerChoiceHtml = (player, selected, disabled, type) => `
+    <button class="player-choice ${selected ? "selected" : ""} ${disabled ? "disabled" : ""}"
+            data-leadership-choice="${type}"
+            data-leadership-player-id="${player.id}"
+            ${disabled ? 'disabled aria-disabled="true"' : ""}>
+      <div class="player-choice-number">${player.number || "—"}</div>
+      <div>
+        <strong>${player.name}</strong>
+        <small>${Number(player.careerGames || 0)} career game${Number(player.careerGames || 0) === 1 ? "" : "s"}</small>
+      </div>
+      <div class="choice-check">${selected ? "✓" : ""}</div>
+    </button>`;
+
+  const renderLeadershipChoices = () => {
+    const players = currentTeamId ? [...playersForTeam(currentTeamId)] : [];
+    players.sort((a,b) => Number(a.number || 999) - Number(b.number || 999) || a.name.localeCompare(b.name));
+
+    const captainWrap = document.getElementById("captainPlayerChoices");
+    const viceWrap = document.getElementById("vicePlayerChoices");
+
+    if (captainWrap) {
+      captainWrap.innerHTML = players.map(player => playerChoiceHtml(
+        player,
+        workingCaptains.includes(player.id),
+        workingViceCaptains.includes(player.id),
+        "captain"
+      )).join("");
+    }
+
+    if (viceWrap) {
+      viceWrap.innerHTML = players.map(player => playerChoiceHtml(
+        player,
+        workingViceCaptains.includes(player.id),
+        workingCaptains.includes(player.id),
+        "vice"
+      )).join("");
+    }
+
+    const capPill = document.getElementById("captainCountPill");
+    const vicePill = document.getElementById("viceCountPill");
+    if (capPill) capPill.textContent = `${workingCaptains.length} selected`;
+    if (vicePill) vicePill.textContent = `${workingViceCaptains.length} selected`;
+  };
+
+  const openTeamSettings = () => {
+    const team = getCurrentTeam();
+    if (!team) return;
+
+    document.getElementById("teamSettingsScreenTitle").textContent = `${team.name} Settings`;
+
+    const junior = ["U9","U10","U12"].includes(team.ageGroup);
+    const juniorPanel = document.getElementById("leadershipJuniorPanel");
+    const seniorPanel = document.getElementById("leadershipSeniorPanel");
+
+    if (junior) {
+      juniorPanel?.classList.remove("hidden");
+      seniorPanel?.classList.add("hidden");
+    } else {
+      juniorPanel?.classList.add("hidden");
+      seniorPanel?.classList.remove("hidden");
+
+      const players = playersForTeam(currentTeamId);
+      const noPlayers = document.getElementById("leadershipNoPlayers");
+      const controls = document.getElementById("leadershipPlayerControls");
+
+      if (!players.length) {
+        noPlayers?.classList.remove("hidden");
+        controls?.classList.add("hidden");
+      } else {
+        noPlayers?.classList.add("hidden");
+        controls?.classList.remove("hidden");
+
+        const saved = settingsForCurrentTeam();
+        const validIds = new Set(players.map(p => p.id));
+        workingCaptains = (saved.captains || []).filter(id => validIds.has(id));
+        workingViceCaptains = (saved.viceCaptains || []).filter(id => validIds.has(id) && !workingCaptains.includes(id));
+        renderLeadershipChoices();
+      }
+    }
+
+    document.getElementById("leadershipSavedMessage")?.classList.add("hidden");
+    showScreen("teamSettingsScreen");
+  };
+
+  document.querySelector("[data-open-team-settings]")?.addEventListener("click", openTeamSettings);
+
+  document.querySelector("[data-back-team-admin-from-settings]")?.addEventListener("click", () => {
+    updateTeamSettingsSummary();
+    showScreen("teamAdminScreen");
+  });
+
+  document.querySelector("[data-settings-go-players]")?.addEventListener("click", () => {
+    renderPlayerList();
+    showScreen("teamPlayersScreen");
+  });
+
+  document.addEventListener("click", event => {
+    const choice = event.target.closest("[data-leadership-choice]");
+    if (!choice || choice.disabled) return;
+
+    const playerId = choice.dataset.leadershipPlayerId;
+    const type = choice.dataset.leadershipChoice;
+
+    if (type === "captain") {
+      if (workingCaptains.includes(playerId)) {
+        workingCaptains = workingCaptains.filter(id => id !== playerId);
+      } else {
+        workingCaptains.push(playerId);
+        workingViceCaptains = workingViceCaptains.filter(id => id !== playerId);
+      }
+    } else {
+      if (workingViceCaptains.includes(playerId)) {
+        workingViceCaptains = workingViceCaptains.filter(id => id !== playerId);
+      } else {
+        workingViceCaptains.push(playerId);
+        workingCaptains = workingCaptains.filter(id => id !== playerId);
+      }
+    }
+
+    renderLeadershipChoices();
+    document.getElementById("leadershipSavedMessage")?.classList.add("hidden");
+  });
+
+  document.querySelector("[data-save-leadership]")?.addEventListener("click", () => {
+    if (!currentTeamId) return;
+
+    const all = getTeamSettings();
+    all[currentTeamId] = {
+      ...(all[currentTeamId] || {}),
+      captains: [...workingCaptains],
+      viceCaptains: [...workingViceCaptains],
+      updatedAt: new Date().toISOString()
+    };
+    saveTeamSettings(all);
+
+    document.getElementById("leadershipSavedMessage")?.classList.remove("hidden");
+    updateTeamSettingsSummary();
+  });
+
+  updateTeamSettingsSummary();
 
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
