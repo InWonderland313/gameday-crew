@@ -957,3 +957,85 @@ input:focus,select:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(244,
   .review-award-row{grid-template-columns:42px 1fr}
   .review-award-result,.review-award-row select{grid-column:2;justify-self:stretch;min-width:0;width:100%}
 }
+
+
+/* V2.14 Game Participation Corrections */
+.review-player-stat-row.did-not-play{
+  background:#F8F9FB;
+  border-style:dashed;
+  opacity:.82
+}
+.review-player-stat-row.did-not-play .review-player-number{
+  background:#94A0B1;
+  color:#fff
+}
+.review-participation-control{
+  grid-column:2 / -1;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-top:3px;
+  padding:9px 10px;
+  border:1px solid var(--line);
+  border-radius:11px;
+  background:#F8F9FB;
+  cursor:pointer
+}
+.review-participation-control.playing{
+  border-color:#B9DDC9;
+  background:#EFFAF4
+}
+.review-participation-control input{
+  width:18px;
+  height:18px;
+  accent-color:#198754;
+  flex:0 0 18px
+}
+.review-participation-control strong{
+  display:block;
+  color:var(--navy);
+  font-size:11px
+}
+.review-participation-control small{
+  display:block;
+  margin-top:2px;
+  color:var(--muted);
+  font-size:9px
+}
+.review-participation-badge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:6px 9px;
+  border-radius:999px;
+  border:1px solid #B9DDC9;
+  background:#EFFAF4;
+  color:#087A3F;
+  font-size:10px;
+  font-weight:900
+}
+.review-participation-badge.out{
+  border-color:var(--line);
+  background:#F5F6F8;
+  color:var(--muted)
+}
+.review-player-edit-controls.disabled{
+  opacity:.45;
+  pointer-events:none
+}
+.review-participation-summary{
+  margin-top:8px;
+  color:var(--muted);
+  font-size:10px
+}
+.review-participation-warning{
+  display:block;
+  margin-top:5px;
+  color:#A54B00;
+  font-size:9px;
+  font-weight:800
+}
+
+@media(max-width:620px){
+  .review-participation-control{grid-column:1 / -1}
+}

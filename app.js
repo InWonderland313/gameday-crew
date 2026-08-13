@@ -1766,30 +1766,91 @@
       game.id === gameId && game.teamId === currentTeamId
     );
 
-  const reviewGameParticipants = game => {
-    if ((game.playerStats || []).length) {
-      return (game.playerStats || []).map(stat => ({
+  const gameRosterSnapshot = game => {
+    const byId = new Map();
+
+    (game.rosterSnapshot || []).forEach(item => {
+      if (!item?.playerId) return;
+      byId.set(item.playerId, {
+        playerId: item.playerId,
+        playerName: item.playerName || "Player",
+        number: item.number || null
+      });
+    });
+
+    (game.playerStats || []).forEach(stat => {
+      if (!stat?.playerId || byId.has(stat.playerId)) return;
+      byId.set(stat.playerId, {
         playerId: stat.playerId,
-        playerName: stat.playerName,
-        number: stat.number || null,
-        goals: Number(stat.goals || 0),
-        points: Number(stat.points || 0),
-        score: Number(stat.score || 0)
-      }));
+        playerName: stat.playerName || "Player",
+        number: stat.number || null
+      });
+    });
+
+    playersForTeam(currentTeamId).forEach(player => {
+      if (byId.has(player.id)) return;
+      byId.set(player.id, {
+        playerId: player.id,
+        playerName: player.name,
+        number: player.number || null
+      });
+    });
+
+    return [...byId.values()].sort((a, b) =>
+      Number(a.number || 999) - Number(b.number || 999) ||
+      a.playerName.localeCompare(b.playerName)
+    );
+  };
+
+  const participantIdsForGame = game => {
+    if (Array.isArray(game.participantIds)) {
+      return new Set(game.participantIds.filter(Boolean));
     }
 
+    if ((game.playerStats || []).length) {
+      return new Set(
+        game.playerStats
+          .map(stat => stat.playerId)
+          .filter(Boolean)
+      );
+    }
+
+    return new Set(Object.keys(game.scoring || {}));
+  };
+
+  const reviewGameParticipants = game => {
     const playerMap = new Map(
-      playersForTeam(currentTeamId).map(player => [player.id, player])
+      gameRosterSnapshot(game).map(item => [item.playerId, item])
+    );
+    const participants = participantIdsForGame(game);
+
+    const recordedMap = new Map(
+      (game.playerStats || []).map(stat => [stat.playerId, stat])
     );
 
-    return Object.entries(game.scoring || {}).map(([playerId, score]) => {
-      const player = playerMap.get(playerId);
-      const goals = Number(score?.goals || 0);
-      const points = Number(score?.points || 0);
+    return [...participants].map(playerId => {
+      const recorded = recordedMap.get(playerId);
+      const legacy = game.scoring?.[playerId] || {};
+      const snapshot = playerMap.get(playerId) || {};
+      const goals = Math.max(
+        0,
+        Number(recorded?.goals ?? legacy.goals ?? 0)
+      );
+      const points = Math.max(
+        0,
+        Number(recorded?.points ?? legacy.points ?? 0)
+      );
+
       return {
         playerId,
-        playerName: player?.name || "Player",
-        number: player?.number || null,
+        playerName:
+          recorded?.playerName ||
+          snapshot.playerName ||
+          "Player",
+        number:
+          recorded?.number ||
+          snapshot.number ||
+          null,
         goals,
         points,
         score: goals * 6 + points
@@ -1799,10 +1860,33 @@
 
   const normaliseReviewDraft = game => {
     const draft = JSON.parse(JSON.stringify(game));
-    draft.playerStats = reviewGameParticipants(draft).map(stat => {
+    draft.rosterSnapshot = gameRosterSnapshot(draft);
+
+    const participants = participantIdsForGame(draft);
+    const recorded = new Map(
+      reviewGameParticipants(draft).map(stat => [stat.playerId, stat])
+    );
+
+    draft.participantIds = draft.rosterSnapshot
+      .map(item => item.playerId)
+      .filter(playerId => participants.has(playerId));
+
+    draft.playerStats = draft.participantIds.map(playerId => {
+      const snapshot = draft.rosterSnapshot.find(item =>
+        item.playerId === playerId
+      ) || {};
+      const stat = recorded.get(playerId) || {};
       const goals = Math.max(0, Number(stat.goals || 0));
       const points = Math.max(0, Number(stat.points || 0));
-      return {...stat, goals, points, score: goals * 6 + points};
+
+      return {
+        playerId,
+        playerName: stat.playerName || snapshot.playerName || "Player",
+        number: stat.number || snapshot.number || null,
+        goals,
+        points,
+        score: goals * 6 + points
+      };
     });
 
     draft.scoring = {};
@@ -1813,18 +1897,55 @@
       };
     });
 
-    draft.teamGoals = draft.playerStats.reduce((sum, stat) => sum + stat.goals, 0);
-    draft.teamPoints = draft.playerStats.reduce((sum, stat) => sum + stat.points, 0);
+    draft.teamGoals = draft.playerStats.reduce(
+      (sum, stat) => sum + stat.goals,
+      0
+    );
+    draft.teamPoints = draft.playerStats.reduce(
+      (sum, stat) => sum + stat.points,
+      0
+    );
     draft.teamScore = draft.teamGoals * 6 + draft.teamPoints;
 
-    draft.awards = (draft.awards || []).map(award => ({
-      ...award,
-      playerId: award.playerId || null,
-      playerName: award.playerName || null,
-      given: Boolean(award.playerId)
-    }));
+    const participantSet = new Set(draft.participantIds);
+
+    draft.captainIds = (draft.captainIds || []).filter(playerId =>
+      participantSet.has(playerId)
+    );
+
+    if (draft.interchange) {
+      Object.values(draft.interchange).forEach(quarter => {
+        Object.keys(quarter || {}).forEach(playerId => {
+          if (!participantSet.has(playerId)) {
+            delete quarter[playerId];
+          }
+        });
+      });
+    }
+
+    draft.awards = (draft.awards || []).map(award => {
+      const validRecipient =
+        award.playerId && participantSet.has(award.playerId);
+
+      return {
+        ...award,
+        playerId: validRecipient ? award.playerId : null,
+        playerName: validRecipient ? (award.playerName || null) : null,
+        given: Boolean(validRecipient)
+      };
+    });
 
     return draft;
+  };
+
+  const reviewParticipationDelta = (original, corrected) => {
+    const before = participantIdsForGame(original);
+    const after = participantIdsForGame(corrected);
+
+    return {
+      removed: [...before].filter(playerId => !after.has(playerId)),
+      added: [...after].filter(playerId => !before.has(playerId))
+    };
   };
 
   const renderManagerGameReview = () => {
@@ -1856,53 +1977,113 @@
     document.getElementById("reviewGameTeamScore").textContent =
       String(game.teamScore);
 
+    const participantSet = new Set(game.participantIds || []);
+    const statsById = new Map(
+      (game.playerStats || []).map(stat => [stat.playerId, stat])
+    );
+    const originalParticipants = participantIdsForGame(original);
+    const originalStats = new Map(
+      reviewGameParticipants(original).map(stat => [stat.playerId, stat])
+    );
+
     const playerWrap = document.getElementById("reviewGamePlayerStats");
-    playerWrap.innerHTML = game.playerStats.map(stat => {
+
+    playerWrap.innerHTML = game.rosterSnapshot.map(snapshot => {
+      const playing = participantSet.has(snapshot.playerId);
+      const stat = statsById.get(snapshot.playerId) || {
+        playerId: snapshot.playerId,
+        playerName: snapshot.playerName,
+        number: snapshot.number,
+        goals: 0,
+        points: 0,
+        score: 0
+      };
+
       if (managerReviewEditMode) {
+        const wasPlaying = originalParticipants.has(snapshot.playerId);
+        const participationChange = playing !== wasPlaying
+          ? `<span class="review-participation-warning">${
+              playing ? "Will add 1 career game when saved." : "Will remove 1 career game when saved."
+            }</span>`
+          : "";
+
         return `
-          <div class="review-player-stat-row">
-            <div class="review-player-number">${stat.number || "—"}</div>
+          <div class="review-player-stat-row ${playing ? "" : "did-not-play"}">
+            <div class="review-player-number">${snapshot.number || "—"}</div>
             <div class="review-player-copy">
-              <strong>${stat.playerName}</strong>
-              <small>${stat.score} player points</small>
+              <strong>${snapshot.playerName}</strong>
+              <small>${playing ? `${stat.score} player points` : "Not counted as playing this game"}</small>
+              ${participationChange}
             </div>
-            <div class="review-player-edit-controls">
+
+            <div class="review-player-edit-controls ${playing ? "" : "disabled"}">
               <div class="review-number-field">
                 <label>Goals</label>
                 <input type="number" min="0" step="1"
-                  value="${stat.goals}"
-                  data-review-player-id="${stat.playerId}"
+                  value="${playing ? stat.goals : 0}"
+                  ${playing ? "" : "disabled"}
+                  data-review-player-id="${snapshot.playerId}"
                   data-review-stat-field="goals">
               </div>
               <div class="review-number-field">
                 <label>Points</label>
                 <input type="number" min="0" step="1"
-                  value="${stat.points}"
-                  data-review-player-id="${stat.playerId}"
+                  value="${playing ? stat.points : 0}"
+                  ${playing ? "" : "disabled"}
+                  data-review-player-id="${snapshot.playerId}"
                   data-review-stat-field="points">
               </div>
             </div>
+
+            <label class="review-participation-control ${playing ? "playing" : ""}">
+              <input type="checkbox"
+                data-review-participation-id="${snapshot.playerId}"
+                ${playing ? "checked" : ""}>
+              <span>
+                <strong>Counted as playing this game</strong>
+                <small>${playing
+                  ? "Counts toward season games and career games."
+                  : "Does not count toward season or career games."
+                }</small>
+              </span>
+            </label>
           </div>
         `;
       }
 
       return `
-        <div class="review-player-stat-row">
-          <div class="review-player-number">${stat.number || "—"}</div>
+        <div class="review-player-stat-row ${playing ? "" : "did-not-play"}">
+          <div class="review-player-number">${snapshot.number || "—"}</div>
           <div class="review-player-copy">
-            <strong>${stat.playerName}</strong>
-            <small>${stat.goals} goal${stat.goals === 1 ? "" : "s"} • ${stat.points} point${stat.points === 1 ? "" : "s"}</small>
+            <strong>${snapshot.playerName}</strong>
+            <small>${playing
+              ? `${stat.goals} goal${stat.goals === 1 ? "" : "s"} • ${stat.points} point${stat.points === 1 ? "" : "s"}`
+              : "Did not play"
+            }</small>
           </div>
-          <div class="review-player-score">
-            <strong>${stat.score}</strong>
-            <span>player score</span>
-          </div>
+          ${playing
+            ? `<div class="review-player-score">
+                <strong>${stat.score}</strong>
+                <span>player score</span>
+              </div>`
+            : `<span class="review-participation-badge out">DID NOT PLAY</span>`
+          }
         </div>
       `;
     }).join("");
 
+    const playingCount = participantSet.size;
+    const totalOnSnapshot = game.rosterSnapshot.length;
+    if (totalOnSnapshot) {
+      playerWrap.insertAdjacentHTML(
+        "beforeend",
+        `<p class="review-participation-summary">${playingCount} of ${totalOnSnapshot} player${totalOnSnapshot === 1 ? "" : "s"} counted as playing this game.</p>`
+      );
+    }
+
     const awardWrap = document.getElementById("reviewGameAwards");
-    const roster = playersForTeam(currentTeamId);
+    const participantOptions = game.rosterSnapshot
+      .filter(snapshot => participantSet.has(snapshot.playerId));
 
     if (!(game.awards || []).length) {
       awardWrap.innerHTML = `
@@ -1927,17 +2108,10 @@
           `;
         }
 
-        const optionMap = new Map(
-          roster.map(player => [player.id, player.name])
-        );
-        if (award.playerId && !optionMap.has(award.playerId)) {
-          optionMap.set(award.playerId, award.playerName || "Previous player");
-        }
-
         const options = [
           `<option value="">No award this game</option>`,
-          ...[...optionMap.entries()].map(([playerId, playerName]) =>
-            `<option value="${playerId}" ${award.playerId === playerId ? "selected" : ""}>${playerName}</option>`
+          ...participantOptions.map(snapshot =>
+            `<option value="${snapshot.playerId}" ${award.playerId === snapshot.playerId ? "selected" : ""}>${snapshot.playerName}</option>`
           )
         ].join("");
 
@@ -1946,7 +2120,7 @@
             <div class="review-award-icon">🏆</div>
             <div>
               <strong>${award.awardName}</strong>
-              <small>Choose the corrected recipient.</small>
+              <small>Only players counted as playing can receive this award.</small>
             </div>
             <select data-review-award-id="${award.awardId}">
               ${options}
@@ -1957,10 +2131,12 @@
     }
 
     document.getElementById("reviewGameEditButton")?.classList.toggle(
-      "hidden", managerReviewEditMode
+      "hidden",
+      managerReviewEditMode
     );
     document.getElementById("reviewGameEditActions")?.classList.toggle(
-      "hidden", !managerReviewEditMode
+      "hidden",
+      !managerReviewEditMode
     );
   };
 
@@ -2003,7 +2179,9 @@
   });
 
   document.addEventListener("change", event => {
-    const input = event.target.closest("[data-review-player-id][data-review-stat-field]");
+    const input = event.target.closest(
+      "[data-review-player-id][data-review-stat-field]"
+    );
     if (!input || !managerReviewEditMode || !managerReviewDraft) return;
 
     const stat = managerReviewDraft.playerStats.find(item =>
@@ -2011,7 +2189,104 @@
     );
     if (!stat) return;
 
-    stat[input.dataset.reviewStatField] = Math.max(0, Number(input.value || 0));
+    stat[input.dataset.reviewStatField] = Math.max(
+      0,
+      Number(input.value || 0)
+    );
+    managerReviewDraft = normaliseReviewDraft(managerReviewDraft);
+    renderManagerGameReview();
+  });
+
+  document.addEventListener("change", event => {
+    const toggle = event.target.closest("[data-review-participation-id]");
+    if (!toggle || !managerReviewEditMode || !managerReviewDraft) return;
+
+    const playerId = toggle.dataset.reviewParticipationId;
+    const snapshot = managerReviewDraft.rosterSnapshot.find(item =>
+      item.playerId === playerId
+    );
+    if (!snapshot) return;
+
+    const participantSet = new Set(managerReviewDraft.participantIds || []);
+    const currentlyPlaying = participantSet.has(playerId);
+    const shouldPlay = Boolean(toggle.checked);
+
+    if (currentlyPlaying === shouldPlay) return;
+
+    if (!shouldPlay) {
+      const stat = managerReviewDraft.playerStats.find(item =>
+        item.playerId === playerId
+      );
+      const assignedAwards = (managerReviewDraft.awards || []).filter(
+        award => award.playerId === playerId
+      );
+      const hasScoring = Number(stat?.goals || 0) > 0 ||
+        Number(stat?.points || 0) > 0;
+
+      if ((hasScoring || assignedAwards.length) && !confirm(
+        `${snapshot.playerName} has ${
+          hasScoring ? "saved scoring" : "no saved scoring"
+        }${assignedAwards.length ? ` and ${assignedAwards.length} award assignment${assignedAwards.length === 1 ? "" : "s"}` : ""}. ` +
+        "Marking them as Did Not Play will clear their scoring and any awards from this game. Continue?"
+      )) {
+        toggle.checked = true;
+        return;
+      }
+
+      participantSet.delete(playerId);
+      managerReviewDraft.participantIds = [...participantSet];
+
+      managerReviewDraft.playerStats = managerReviewDraft.playerStats.filter(
+        item => item.playerId !== playerId
+      );
+      delete managerReviewDraft.scoring?.[playerId];
+
+      managerReviewDraft.captainIds = (
+        managerReviewDraft.captainIds || []
+      ).filter(id => id !== playerId);
+
+      if (managerReviewDraft.interchange) {
+        Object.values(managerReviewDraft.interchange).forEach(quarter => {
+          if (quarter) delete quarter[playerId];
+        });
+      }
+
+      managerReviewDraft.awards = (managerReviewDraft.awards || []).map(
+        award => award.playerId === playerId
+          ? {
+              ...award,
+              playerId: null,
+              playerName: null,
+              given: false
+            }
+          : award
+      );
+    } else {
+      participantSet.add(playerId);
+      managerReviewDraft.participantIds = [...participantSet];
+
+      if (!managerReviewDraft.playerStats.some(
+        item => item.playerId === playerId
+      )) {
+        managerReviewDraft.playerStats.push({
+          playerId,
+          playerName: snapshot.playerName,
+          number: snapshot.number || null,
+          goals: 0,
+          points: 0,
+          score: 0
+        });
+      }
+
+      if (!managerReviewDraft.scoring) {
+        managerReviewDraft.scoring = {};
+      }
+      managerReviewDraft.scoring[playerId] = {
+        goals: 0,
+        points: 0
+      };
+    }
+
     managerReviewDraft = normaliseReviewDraft(managerReviewDraft);
     renderManagerGameReview();
   });
@@ -2026,11 +2301,21 @@
     if (!award) return;
 
     const playerId = select.value || null;
-    const player = playersForTeam(currentTeamId).find(item => item.id === playerId);
-    const existingStat = managerReviewDraft.playerStats.find(item => item.playerId === playerId);
+    const participantSet = new Set(
+      managerReviewDraft.participantIds || []
+    );
+
+    if (playerId && !participantSet.has(playerId)) {
+      renderManagerGameReview();
+      return;
+    }
+
+    const snapshot = managerReviewDraft.rosterSnapshot.find(item =>
+      item.playerId === playerId
+    );
 
     award.playerId = playerId;
-    award.playerName = player?.name || existingStat?.playerName || null;
+    award.playerName = snapshot?.playerName || null;
     award.given = Boolean(playerId);
 
     renderManagerGameReview();
@@ -2041,18 +2326,63 @@
 
     const corrected = normaliseReviewDraft(managerReviewDraft);
 
-    if (!confirm(
-      `Save corrections to Round ${corrected.round}? Season stats, awards, Golden Boot and reports will update. Career games will not be changed.`
-    )) return;
-
     const allGames = getAllCompletedGames();
     const index = allGames.findIndex(game =>
       game.id === managerReviewGameId && game.teamId === currentTeamId
     );
     if (index < 0) return;
 
+    const original = allGames[index];
+    const delta = reviewParticipationDelta(original, corrected);
+    const participationChanges = delta.removed.length + delta.added.length;
+
+    const participationMessage = participationChanges
+      ? ` Participation changes will adjust career games for ${participationChanges} player${participationChanges === 1 ? "" : "s"} exactly once.`
+      : " Career games will be unchanged.";
+
+    if (!confirm(
+      `Save corrections to Round ${corrected.round}? Season stats, awards, Golden Boot and reports will update.${participationMessage}`
+    )) return;
+
+    if (participationChanges) {
+      const removedSet = new Set(delta.removed);
+      const addedSet = new Set(delta.added);
+
+      const adjustedPlayers = getAllPlayers().map(player => {
+        if (player.teamId !== currentTeamId) return player;
+
+        if (removedSet.has(player.id)) {
+          return {
+            ...player,
+            careerGames: Math.max(
+              0,
+              Number(player.careerGames || 0) - 1
+            )
+          };
+        }
+
+        if (addedSet.has(player.id)) {
+          return {
+            ...player,
+            careerGames:
+              Number(player.careerGames || 0) + 1
+          };
+        }
+
+        return player;
+      });
+
+      saveAllPlayers(adjustedPlayers);
+    }
+
     corrected.correctedAt = new Date().toISOString();
-    corrected.correctedCount = Number(allGames[index].correctedCount || 0) + 1;
+    corrected.correctedCount =
+      Number(original.correctedCount || 0) + 1;
+    corrected.participationCorrected =
+      Boolean(
+        original.participationCorrected ||
+        participationChanges
+      );
     allGames[index] = corrected;
     saveAllCompletedGames(allGames);
 
@@ -2061,8 +2391,12 @@
 
     const notice = document.getElementById("reviewGameNotice");
     if (notice) {
+      const careerText = participationChanges
+        ? `Career games adjusted for ${participationChanges} player${participationChanges === 1 ? "" : "s"}`
+        : "Career games unchanged";
+
       notice.textContent =
-        "✓ Corrections saved • Season stats, awards, Golden Boot and reports updated • Career games unchanged";
+        `✓ Corrections saved • Season stats, awards, Golden Boot and reports updated • ${careerText}`;
       notice.classList.remove("hidden");
     }
 
@@ -2544,6 +2878,21 @@
               `${Number(stat.goals || 0)}G ${Number(stat.points || 0)}P - ${Number(stat.score || 0)} pts`
           });
         });
+
+        const rosterSnapshot = gameRosterSnapshot(game);
+        const participants = participantIdsForGame(game);
+        const didNotPlay = rosterSnapshot.filter(
+          player => !participants.has(player.playerId)
+        );
+
+        if (didNotPlay.length) {
+          lines.push({
+            text:
+              `  Did not play: ${didNotPlay.map(player =>
+                `${player.number ? `#${player.number} ` : ""}${player.playerName}`
+              ).join(", ")}`
+          });
+        }
 
         if (awardsGiven.length) {
           lines.push({
@@ -3383,6 +3732,12 @@
       trackInterchange: Boolean(live.trackInterchange),
       scoring: JSON.parse(JSON.stringify(live.scoring || {})),
       playerStats,
+      rosterSnapshot: players.map(player => ({
+        playerId: player.id,
+        playerName: player.name,
+        number: player.number || null
+      })),
+      participantIds: [...participantIds],
       interchange: JSON.parse(JSON.stringify(live.interchange || {})),
       hiddenInterchangeQuarters: [...(live.hiddenInterchangeQuarters || [])],
       awards: awardOutcomes,
