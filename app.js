@@ -1154,6 +1154,7 @@
 
   const renderNextGameHome = () => {
     const game = nextGameForCurrentTeam();
+    const live = typeof liveGameForCurrentTeam === "function" ? liveGameForCurrentTeam() : null;
     const heading = document.getElementById("nextGameHeading");
     const subtext = document.getElementById("nextGameSubtext");
     const details = document.getElementById("nextGameDetails");
@@ -1173,8 +1174,10 @@
       return;
     }
 
-    heading.textContent = `Round ${game.round}`;
-    subtext.textContent = "Your next game is ready for game-day setup.";
+    heading.textContent = live ? `Round ${game.round} — Game in progress` : `Round ${game.round}`;
+    subtext.textContent = live
+      ? "Scoring is being saved as you go."
+      : "Your next game is ready for game-day setup.";
     document.getElementById("nextGameRoundDisplay").textContent = `Round ${game.round}`;
     document.getElementById("nextGameDateDisplay").textContent = formatGameDate(game.date);
 
@@ -1187,7 +1190,8 @@
     dateBadge?.classList.remove("hidden");
     setBtn?.classList.add("hidden");
     prepareBtn?.classList.remove("hidden");
-    editBtn?.classList.remove("hidden");
+    if (prepareBtn) prepareBtn.textContent = live ? "Return to Live Game" : "Set Up Game Day";
+    editBtn?.classList.toggle("hidden", Boolean(live));
   };
 
   const milestoneCardsForCurrentTeam = () => {
@@ -1386,9 +1390,7 @@
   });
 
   document.querySelector("[data-prepare-game]")?.addEventListener("click", () => {
-    const msg = document.getElementById("gameSetupComingMessage");
-    msg?.classList.remove("hidden");
-    msg?.scrollIntoView({behavior: "smooth", block: "center"});
+    openGameSetup();
   });
 
   const managerTabCopy = {
@@ -1444,6 +1446,8 @@
       if (tab === "home") {
         renderTeamHome();
         showScreen("teamHomeScreen");
+      } else if (tab === "game") {
+        openGameSetup();
       } else {
         openManagerPlaceholder(tab);
       }
@@ -1455,6 +1459,467 @@
       renderTeamHome();
       showScreen("teamHomeScreen");
     });
+  });
+
+
+  const LIVE_GAME_KEY = "gdc_v2_demo_live_games";
+  let selectedGameCaptains = [];
+  let setupTrackInterchange = null;
+  let currentLiveQuarter = 1;
+
+  const getLiveGames = () => {
+    try { return JSON.parse(localStorage.getItem(LIVE_GAME_KEY) || "{}"); }
+    catch { return {}; }
+  };
+
+  const saveLiveGames = games => {
+    localStorage.setItem(LIVE_GAME_KEY, JSON.stringify(games));
+  };
+
+  const liveGameForCurrentTeam = () => {
+    const all = getLiveGames();
+    return all[currentTeamId] || null;
+  };
+
+  const saveCurrentLiveGame = game => {
+    const all = getLiveGames();
+    all[currentTeamId] = game;
+    saveLiveGames(all);
+  };
+
+  const captainCountForPlayer = playerId => {
+    return gamesForTeam(currentTeamId)
+      .filter(game => Array.isArray(game.captainIds) && game.captainIds.includes(playerId))
+      .length;
+  };
+
+  const renderJuniorCaptainChoices = () => {
+    const list = document.getElementById("gameCaptainChoices");
+    if (!list) return;
+
+    const players = [...playersForTeam(currentTeamId)];
+    players.sort((a, b) =>
+      captainCountForPlayer(a.id) - captainCountForPlayer(b.id) ||
+      Number(a.number || 999) - Number(b.number || 999) ||
+      a.name.localeCompare(b.name)
+    );
+
+    list.innerHTML = players.map(player => {
+      const turns = captainCountForPlayer(player.id);
+      const selected = selectedGameCaptains.includes(player.id);
+      const fairnessText = turns === 0
+        ? "Yet to captain"
+        : `${turns} captain turn${turns === 1 ? "" : "s"}`;
+
+      return `
+        <button class="game-captain-choice ${selected ? "selected" : ""}" data-game-captain="${player.id}">
+          <div class="captain-turn-badge">${player.number || "—"}</div>
+          <div>
+            <strong>${player.name}</strong>
+            <small>${Number(player.careerGames || 0)} career games</small>
+          </div>
+          <span class="captain-fairness-pill">${selected ? "Selected" : fairnessText}</span>
+        </button>
+      `;
+    }).join("");
+  };
+
+  const renderSeniorLeadershipForGame = () => {
+    const wrap = document.getElementById("gameLeadershipDisplay");
+    if (!wrap) return;
+
+    const settings = fullSettingsForCurrentTeam();
+    const players = playersForTeam(currentTeamId);
+    const captains = (settings.captains || [])
+      .map(id => players.find(player => player.id === id))
+      .filter(Boolean);
+    const vice = (settings.viceCaptains || [])
+      .map(id => players.find(player => player.id === id))
+      .filter(Boolean);
+
+    selectedGameCaptains = captains.map(player => player.id);
+
+    if (!captains.length && !vice.length) {
+      wrap.innerHTML = `
+        <div class="soft-empty">
+          <span>🏅</span>
+          <strong>No season leadership set</strong>
+          <small>You can still start the game, but Team Settings is where Captains and Vice Captains are configured.</small>
+        </div>
+      `;
+      return;
+    }
+
+    wrap.innerHTML = [
+      ...captains.map(player =>
+        `<span class="game-leader-card captain">C • ${player.name}</span>`
+      ),
+      ...vice.map(player =>
+        `<span class="game-leader-card">VC • ${player.name}</span>`
+      )
+    ].join("");
+  };
+
+  const updateGameSetupReadyState = () => {
+    const team = getCurrentTeam();
+    const players = playersForTeam(currentTeamId);
+    const junior = team && ["U9", "U10", "U12"].includes(team.ageGroup);
+    const captainReady = !junior || selectedGameCaptains.length > 0;
+    const interchangeReady = setupTrackInterchange !== null;
+    const rosterReady = players.length > 0;
+
+    const ready = captainReady && interchangeReady && rosterReady;
+    const text = document.getElementById("gameSetupReadyText");
+    const button = document.querySelector("[data-start-live-game]");
+
+    if (!rosterReady) {
+      text.textContent = "Add at least one player before starting the game.";
+    } else if (!captainReady) {
+      text.textContent = "Choose at least one captain for today.";
+    } else if (!interchangeReady) {
+      text.textContent = "Choose whether you'll be tracking interchange today.";
+    } else {
+      text.textContent = setupTrackInterchange
+        ? "Ready — scoring and interchange tracking will be available."
+        : "Ready — scoring will be shown without interchange tracking.";
+    }
+
+    text?.classList.toggle("ready", ready);
+    if (button) button.disabled = !ready;
+  };
+
+  const renderGameSetup = () => {
+    const team = getCurrentTeam();
+    const game = nextGameForCurrentTeam();
+    if (!team || !game) return;
+
+    document.getElementById("gameSetupTitle").textContent = `Round ${game.round}`;
+    document.getElementById("gameSetupDate").textContent = formatGameDate(game.date);
+
+    const junior = ["U9", "U10", "U12"].includes(team.ageGroup);
+    const juniorPanel = document.getElementById("juniorCaptainSetup");
+    const seniorPanel = document.getElementById("seniorCaptainSetup");
+
+    selectedGameCaptains = [];
+    setupTrackInterchange = null;
+
+    document.querySelectorAll("[data-interchange-choice]").forEach(button => {
+      button.classList.remove("selected");
+    });
+
+    if (junior) {
+      juniorPanel?.classList.remove("hidden");
+      seniorPanel?.classList.add("hidden");
+      renderJuniorCaptainChoices();
+    } else {
+      juniorPanel?.classList.add("hidden");
+      seniorPanel?.classList.remove("hidden");
+      renderSeniorLeadershipForGame();
+    }
+
+    updateGameSetupReadyState();
+  };
+
+  const openGameSetup = () => {
+    const live = liveGameForCurrentTeam();
+    if (live) {
+      currentLiveQuarter = Number(live.quarter || 1);
+      renderLiveGame();
+      showScreen("liveGameScreen");
+      return;
+    }
+
+    const next = nextGameForCurrentTeam();
+    if (!next) {
+      alert("Set up the next round and date from Team Home first.");
+      renderTeamHome();
+      showScreen("teamHomeScreen");
+      return;
+    }
+
+    renderGameSetup();
+    showScreen("gameSetupScreen");
+  };
+
+  document.addEventListener("click", event => {
+    const captainButton = event.target.closest("[data-game-captain]");
+    if (captainButton) {
+      const playerId = captainButton.dataset.gameCaptain;
+      if (selectedGameCaptains.includes(playerId)) {
+        selectedGameCaptains = selectedGameCaptains.filter(id => id !== playerId);
+      } else {
+        selectedGameCaptains.push(playerId);
+      }
+      renderJuniorCaptainChoices();
+      updateGameSetupReadyState();
+      return;
+    }
+
+    const interchangeButton = event.target.closest("[data-interchange-choice]");
+    if (interchangeButton) {
+      setupTrackInterchange = interchangeButton.dataset.interchangeChoice === "yes";
+      document.querySelectorAll("[data-interchange-choice]").forEach(button => {
+        button.classList.toggle("selected", button === interchangeButton);
+      });
+      updateGameSetupReadyState();
+    }
+  });
+
+  document.querySelector("[data-back-team-home-from-game-setup]")?.addEventListener("click", () => {
+    renderTeamHome();
+    showScreen("teamHomeScreen");
+  });
+
+  document.querySelector("[data-start-live-game]")?.addEventListener("click", () => {
+    const team = getCurrentTeam();
+    const next = nextGameForCurrentTeam();
+    const players = playersForTeam(currentTeamId);
+    if (!team || !next || !players.length) return;
+
+    const scoring = {};
+    const interchange = {1: {}, 2: {}, 3: {}, 4: {}};
+
+    players.forEach(player => {
+      scoring[player.id] = {goals: 0, points: 0};
+      [1, 2, 3, 4].forEach(q => {
+        interchange[q][player.id] = "on";
+      });
+    });
+
+    const game = {
+      id: "live_" + Date.now(),
+      teamId: currentTeamId,
+      round: next.round,
+      date: next.date,
+      captainIds: [...selectedGameCaptains],
+      trackInterchange: setupTrackInterchange === true,
+      quarter: 1,
+      hiddenInterchangeQuarters: [],
+      scoring,
+      interchange,
+      startedAt: new Date().toISOString()
+    };
+
+    currentLiveQuarter = 1;
+    saveCurrentLiveGame(game);
+    renderLiveGame();
+    showScreen("liveGameScreen");
+  });
+
+  const scoreTotalsForGame = game => {
+    let goals = 0;
+    let points = 0;
+
+    Object.values(game.scoring || {}).forEach(score => {
+      goals += Number(score.goals || 0);
+      points += Number(score.points || 0);
+    });
+
+    return {goals, points, total: goals * 6 + points};
+  };
+
+  const renderLiveScoring = game => {
+    const players = playersForTeam(currentTeamId);
+    const list = document.getElementById("liveScoringList");
+    if (!list) return;
+
+    list.innerHTML = players.map(player => {
+      const score = game.scoring?.[player.id] || {goals: 0, points: 0};
+
+      return `
+        <div class="live-score-row">
+          <div class="live-player-number">${player.number || "—"}</div>
+          <div>
+            <strong>${player.name}</strong>
+            <small>${Number(score.goals || 0) * 6 + Number(score.points || 0)} points scored</small>
+          </div>
+
+          <div class="score-control">
+            <button data-score-player="${player.id}" data-score-type="goals" data-score-delta="-1">−</button>
+            <div class="score-value">
+              <span>${Number(score.goals || 0)}</span>
+              <div class="score-label">GOALS</div>
+            </div>
+            <button data-score-player="${player.id}" data-score-type="goals" data-score-delta="1">+</button>
+          </div>
+
+          <div class="score-control">
+            <button data-score-player="${player.id}" data-score-type="points" data-score-delta="-1">−</button>
+            <div class="score-value">
+              <span>${Number(score.points || 0)}</span>
+              <div class="score-label">POINTS</div>
+            </div>
+            <button data-score-player="${player.id}" data-score-type="points" data-score-delta="1">+</button>
+          </div>
+        </div>
+      `;
+    }).join("");
+  };
+
+  const renderLiveInterchange = game => {
+    const section = document.getElementById("liveInterchangeSection");
+    const offCard = document.getElementById("liveInterchangeOffCard");
+
+    if (!game.trackInterchange) {
+      section?.classList.add("hidden");
+      offCard?.classList.remove("hidden");
+      return;
+    }
+
+    section?.classList.remove("hidden");
+    offCard?.classList.add("hidden");
+
+    document.getElementById("liveQuarterNumber").textContent = String(currentLiveQuarter);
+
+    document.querySelectorAll("[data-game-quarter]").forEach(button => {
+      button.classList.toggle(
+        "selected",
+        Number(button.dataset.gameQuarter) === currentLiveQuarter
+      );
+    });
+
+    const hidden = (game.hiddenInterchangeQuarters || []).includes(currentLiveQuarter);
+    document.getElementById("interchangeControls")?.classList.toggle("hidden", hidden);
+    document.getElementById("interchangeHiddenMessage")?.classList.toggle("hidden", !hidden);
+
+    const toggleButton = document.querySelector("[data-toggle-interchange-panel]");
+    if (toggleButton) {
+      toggleButton.textContent = hidden ? "Show this quarter" : "Hide this quarter";
+    }
+
+    const list = document.getElementById("interchangePlayerList");
+    const players = playersForTeam(currentTeamId);
+    const quarterData = game.interchange?.[currentLiveQuarter] || {};
+
+    list.innerHTML = players.map(player => {
+      const status = quarterData[player.id] || "on";
+      const bench = status === "bench";
+
+      return `
+        <div class="interchange-player-row ${bench ? "bench" : ""}">
+          <div class="player-number">${player.number || "—"}</div>
+          <div>
+            <strong>${player.name}</strong>
+            <small>${bench ? "Currently on interchange" : "Currently on field"}</small>
+          </div>
+          <button class="interchange-status ${bench ? "bench" : "on"}" data-toggle-player-interchange="${player.id}">
+            ${bench ? "INTERCHANGE" : "ON FIELD"}
+          </button>
+        </div>
+      `;
+    }).join("");
+  };
+
+  const renderLiveGame = () => {
+    const team = getCurrentTeam();
+    const game = liveGameForCurrentTeam();
+    if (!team || !game) return;
+
+    document.getElementById("liveGameRound").textContent = `Round ${game.round}`;
+    document.getElementById("liveGameDate").textContent = formatGameDate(game.date);
+    document.getElementById("liveTeamName").textContent = team.name;
+
+    const totals = scoreTotalsForGame(game);
+    document.getElementById("liveTotalScore").textContent = String(totals.total);
+    document.getElementById("liveGoalsTotal").textContent = String(totals.goals);
+    document.getElementById("livePointsTotal").textContent = String(totals.points);
+
+    renderLiveScoring(game);
+    renderLiveInterchange(game);
+  };
+
+  document.addEventListener("click", event => {
+    const scoreButton = event.target.closest("[data-score-player]");
+    if (scoreButton) {
+      const game = liveGameForCurrentTeam();
+      if (!game) return;
+
+      const playerId = scoreButton.dataset.scorePlayer;
+      const type = scoreButton.dataset.scoreType;
+      const delta = Number(scoreButton.dataset.scoreDelta || 0);
+
+      if (!game.scoring[playerId]) game.scoring[playerId] = {goals: 0, points: 0};
+      game.scoring[playerId][type] = Math.max(
+        0,
+        Number(game.scoring[playerId][type] || 0) + delta
+      );
+
+      saveCurrentLiveGame(game);
+      renderLiveGame();
+      return;
+    }
+
+    const quarterButton = event.target.closest("[data-game-quarter]");
+    if (quarterButton) {
+      const game = liveGameForCurrentTeam();
+      if (!game) return;
+
+      currentLiveQuarter = Number(quarterButton.dataset.gameQuarter);
+      game.quarter = currentLiveQuarter;
+      saveCurrentLiveGame(game);
+      renderLiveInterchange(game);
+      return;
+    }
+
+    const interchangePlayerButton = event.target.closest("[data-toggle-player-interchange]");
+    if (interchangePlayerButton) {
+      const game = liveGameForCurrentTeam();
+      if (!game || !game.trackInterchange) return;
+
+      const playerId = interchangePlayerButton.dataset.togglePlayerInterchange;
+      if (!game.interchange[currentLiveQuarter]) game.interchange[currentLiveQuarter] = {};
+
+      const current = game.interchange[currentLiveQuarter][playerId] || "on";
+      game.interchange[currentLiveQuarter][playerId] = current === "on" ? "bench" : "on";
+
+      saveCurrentLiveGame(game);
+      renderLiveInterchange(game);
+    }
+  });
+
+  document.querySelector("[data-toggle-interchange-panel]")?.addEventListener("click", () => {
+    const game = liveGameForCurrentTeam();
+    if (!game) return;
+
+    const hidden = new Set(game.hiddenInterchangeQuarters || []);
+    if (hidden.has(currentLiveQuarter)) {
+      hidden.delete(currentLiveQuarter);
+    } else {
+      hidden.add(currentLiveQuarter);
+    }
+
+    game.hiddenInterchangeQuarters = [...hidden];
+    saveCurrentLiveGame(game);
+    renderLiveInterchange(game);
+  });
+
+  document.querySelector("[data-show-interchange-panel]")?.addEventListener("click", () => {
+    const game = liveGameForCurrentTeam();
+    if (!game) return;
+
+    game.hiddenInterchangeQuarters = (game.hiddenInterchangeQuarters || [])
+      .filter(q => q !== currentLiveQuarter);
+
+    saveCurrentLiveGame(game);
+    renderLiveInterchange(game);
+  });
+
+  document.querySelector("[data-enable-live-interchange]")?.addEventListener("click", () => {
+    const game = liveGameForCurrentTeam();
+    if (!game) return;
+
+    game.trackInterchange = true;
+    saveCurrentLiveGame(game);
+    renderLiveInterchange(game);
+  });
+
+  document.querySelector("[data-live-game-home]")?.addEventListener("click", () => {
+    renderTeamHome();
+    showScreen("teamHomeScreen");
+  });
+
+  document.querySelector("[data-finish-game-placeholder]")?.addEventListener("click", () => {
+    alert("Game scoring is saved. Post-game Awards is the next build, so Finish Game is intentionally staying open for this test.");
   });
 
   if ("serviceWorker" in navigator) {

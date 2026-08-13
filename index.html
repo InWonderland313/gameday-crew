@@ -691,15 +691,170 @@
       </div>
     </section>
 
-    <div id="gameSetupComingMessage" class="starter-message hidden">
-      Next build: captain selection, optional interchange tracking, then Start Game.
-    </div>
   </div>
 
   <nav class="manager-bottom-nav">
     <button class="manager-nav-item manager-nav-active" data-manager-tab="home"><span>⌂</span><small>Home</small></button>
     <button class="manager-nav-item" data-manager-tab="team"><span>👥</span><small>Team</small></button>
     <button class="manager-nav-item" data-manager-tab="game"><span>🏉</span><small>Game</small></button>
+    <button class="manager-nav-item" data-manager-tab="stats"><span>📊</span><small>Stats</small></button>
+    <button class="manager-nav-item" data-manager-tab="awards"><span>🏆</span><small>Awards</small></button>
+  </nav>
+</section>
+
+
+<section id="gameSetupScreen" class="screen manager-screen">
+  <header class="game-setup-hero">
+    <div class="game-setup-hero-inner">
+      <button class="icon-btn" data-back-team-home-from-game-setup aria-label="Back">←</button>
+      <div>
+        <p class="eyebrow">GAME DAY SETUP</p>
+        <h1 id="gameSetupTitle">Round 1</h1>
+        <p id="gameSetupDate" class="team-meta">—</p>
+      </div>
+    </div>
+  </header>
+
+  <div class="content manager-content">
+    <section class="setup-flow-card">
+      <div class="flow-step-label"><span>1</span> Captains</div>
+
+      <div id="juniorCaptainSetup" class="hidden">
+        <h2>Who is captaining today?</h2>
+        <p class="muted">Players who have had fewer captain turns are shown first. You can choose more than one.</p>
+        <div id="gameCaptainChoices" class="game-captain-list"></div>
+      </div>
+
+      <div id="seniorCaptainSetup" class="hidden">
+        <h2>Season leadership</h2>
+        <p class="muted">Your saved Captains and Vice Captains are shown for game day.</p>
+        <div id="gameLeadershipDisplay" class="game-leadership-display"></div>
+      </div>
+    </section>
+
+    <section class="setup-flow-card">
+      <div class="flow-step-label"><span>2</span> Interchange</div>
+      <h2>Will you be tracking interchange today?</h2>
+      <p class="muted">This can change quarter by quarter. Even if you choose Yes now, you can hide it during the game whenever you don't need it.</p>
+
+      <div class="interchange-choice-row">
+        <button class="interchange-choice" data-interchange-choice="yes">
+          <span>🔄</span>
+          <strong>Yes</strong>
+          <small>Show interchange tools during the game.</small>
+        </button>
+        <button class="interchange-choice" data-interchange-choice="no">
+          <span>✓</span>
+          <strong>Not today</strong>
+          <small>Keep the game screen focused on scoring.</small>
+        </button>
+      </div>
+    </section>
+
+    <section class="setup-flow-card start-game-card">
+      <div class="flow-step-label"><span>3</span> Ready</div>
+      <div id="gameSetupReadyText" class="ready-summary">Choose your game-day options above.</div>
+      <button class="btn btn-primary full-width start-game-button" data-start-live-game disabled>Start Game</button>
+    </section>
+  </div>
+
+  <nav class="manager-bottom-nav">
+    <button class="manager-nav-item" data-manager-tab="home"><span>⌂</span><small>Home</small></button>
+    <button class="manager-nav-item" data-manager-tab="team"><span>👥</span><small>Team</small></button>
+    <button class="manager-nav-item manager-nav-active" data-manager-tab="game"><span>🏉</span><small>Game</small></button>
+    <button class="manager-nav-item" data-manager-tab="stats"><span>📊</span><small>Stats</small></button>
+    <button class="manager-nav-item" data-manager-tab="awards"><span>🏆</span><small>Awards</small></button>
+  </nav>
+</section>
+
+<section id="liveGameScreen" class="screen manager-screen">
+  <header class="live-game-hero">
+    <div class="live-game-hero-inner">
+      <button class="icon-btn" data-live-game-home aria-label="Team Home">←</button>
+      <div>
+        <p class="eyebrow">LIVE GAME</p>
+        <h1 id="liveGameRound">Round 1</h1>
+        <p id="liveGameDate" class="team-meta">—</p>
+      </div>
+      <div class="live-indicator"><span></span> LIVE</div>
+    </div>
+  </header>
+
+  <div class="content live-game-content">
+    <section class="team-score-card">
+      <div>
+        <p class="eyebrow">YOUR TEAM</p>
+        <h2 id="liveTeamName">Team</h2>
+      </div>
+      <div class="team-score-total">
+        <strong id="liveTotalScore">0</strong>
+        <small><span id="liveGoalsTotal">0</span> goals • <span id="livePointsTotal">0</span> points</small>
+      </div>
+    </section>
+
+    <section class="live-section">
+      <div class="section-heading-row">
+        <div>
+          <p class="eyebrow">SCORING</p>
+          <h2 class="section-title">Goals & points</h2>
+        </div>
+      </div>
+      <p class="muted live-help">Track your players only — no opposition score needed.</p>
+      <div id="liveScoringList" class="live-scoring-list"></div>
+    </section>
+
+    <section id="liveInterchangeSection" class="live-section hidden">
+      <div class="section-heading-row live-interchange-heading">
+        <div>
+          <p class="eyebrow">INTERCHANGE</p>
+          <h2 class="section-title">Quarter <span id="liveQuarterNumber">1</span></h2>
+        </div>
+        <button class="text-btn" data-toggle-interchange-panel>Hide this quarter</button>
+      </div>
+
+      <div class="quarter-selector">
+        <button class="quarter-button selected" data-game-quarter="1">Q1</button>
+        <button class="quarter-button" data-game-quarter="2">Q2</button>
+        <button class="quarter-button" data-game-quarter="3">Q3</button>
+        <button class="quarter-button" data-game-quarter="4">Q4</button>
+      </div>
+
+      <div id="interchangeControls">
+        <p class="muted live-help">Tap a player to switch between On field and Interchange for this quarter.</p>
+        <div id="interchangePlayerList" class="interchange-player-list"></div>
+      </div>
+
+      <div id="interchangeHiddenMessage" class="soft-empty hidden">
+        <span>🙈</span>
+        <strong>Interchange hidden for this quarter</strong>
+        <small>You can show it again whenever you need it.</small>
+        <button class="btn btn-secondary" data-show-interchange-panel>Show Interchange</button>
+      </div>
+    </section>
+
+    <section id="liveInterchangeOffCard" class="live-section hidden">
+      <div class="home-info-card">
+        <div class="home-info-icon">🔄</div>
+        <div class="home-info-copy">
+          <p class="eyebrow">INTERCHANGE</p>
+          <h2>Not tracking today</h2>
+          <p class="muted">Need it after all? You can turn it on without restarting the game.</p>
+          <button class="text-btn" data-enable-live-interchange>Turn on interchange tracking</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="live-section finish-game-panel">
+      <p class="muted">Your scoring is saved as you go.</p>
+      <button class="btn danger-outline full-width" data-finish-game-placeholder>Finish Game</button>
+      <small>Post-game awards are the next build, so Finish Game won't close this test game yet.</small>
+    </section>
+  </div>
+
+  <nav class="manager-bottom-nav">
+    <button class="manager-nav-item" data-manager-tab="home"><span>⌂</span><small>Home</small></button>
+    <button class="manager-nav-item" data-manager-tab="team"><span>👥</span><small>Team</small></button>
+    <button class="manager-nav-item manager-nav-active" data-manager-tab="game"><span>🏉</span><small>Game</small></button>
     <button class="manager-nav-item" data-manager-tab="stats"><span>📊</span><small>Stats</small></button>
     <button class="manager-nav-item" data-manager-tab="awards"><span>🏆</span><small>Awards</small></button>
   </nav>
