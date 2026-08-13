@@ -1127,14 +1127,16 @@
 
   const saveNextGames = data => localStorage.setItem(NEXT_GAME_KEY, JSON.stringify(data));
 
-  const gamesForTeam = teamId => {
-    try {
-      const all = JSON.parse(localStorage.getItem(GAMES_KEY) || "[]");
-      return all.filter(g => g.teamId === teamId);
-    } catch {
-      return [];
-    }
+  const getAllCompletedGames = () => {
+    try { return JSON.parse(localStorage.getItem(GAMES_KEY) || "[]"); }
+    catch { return []; }
   };
+
+  const saveAllCompletedGames = games =>
+    localStorage.setItem(GAMES_KEY, JSON.stringify(games));
+
+  const gamesForTeam = teamId =>
+    getAllCompletedGames().filter(game => game.teamId === teamId);
 
   const nextGameForCurrentTeam = () => {
     const all = getNextGames();
@@ -1310,6 +1312,8 @@
   const renderTeamHome = () => {
     const team = getCurrentTeam();
     if (!team) return;
+
+    document.getElementById("teamHomeNotice")?.classList.add("hidden");
 
     document.getElementById("teamHomeBadge").textContent = team.ageGroup || "TEAM";
     document.getElementById("teamHomeName").textContent = team.name;
@@ -1918,8 +1922,299 @@
     showScreen("teamHomeScreen");
   });
 
-  document.querySelector("[data-finish-game-placeholder]")?.addEventListener("click", () => {
-    alert("Game scoring is saved. Post-game Awards is the next build, so Finish Game is intentionally staying open for this test.");
+
+  const awardHistoryForTeam = awardId => {
+    const counts = new Map();
+
+    gamesForTeam(currentTeamId).forEach(game => {
+      (game.awards || []).forEach(award => {
+        if (award.awardId !== awardId || !award.playerId) return;
+        counts.set(award.playerId, (counts.get(award.playerId) || 0) + 1);
+      });
+    });
+
+    return counts;
+  };
+
+  const renderPostGameAwards = () => {
+    const team = getCurrentTeam();
+    const game = liveGameForCurrentTeam();
+    if (!team || !game) return;
+
+    const totals = scoreTotalsForGame(game);
+    const players = playersForTeam(currentTeamId);
+    const settings = fullSettingsForCurrentTeam();
+    const awards = settings.awards || [];
+
+    document.getElementById("postGameAwardsRound").textContent =
+      `Round ${game.round} Awards`;
+    document.getElementById("postGameAwardsDate").textContent =
+      formatGameDate(game.date);
+    document.getElementById("postGameTeamName").textContent = team.name;
+    document.getElementById("postGameTotalScore").textContent =
+      String(totals.total);
+    document.getElementById("postGameScoreBreakdown").textContent =
+      `${totals.goals} goal${totals.goals === 1 ? "" : "s"} • ${totals.points} point${totals.points === 1 ? "" : "s"}`;
+
+    const awardsList = document.getElementById("postGameAwardsList");
+    const noAwards = document.getElementById("postGameNoAwards");
+
+    if (!awards.length) {
+      awardsList.innerHTML = "";
+      noAwards?.classList.remove("hidden");
+    } else {
+      noAwards?.classList.add("hidden");
+
+      awardsList.innerHTML = awards.map((award, index) => {
+        const history = awardHistoryForTeam(award.id);
+        const previous = players
+          .filter(player => history.has(player.id))
+          .sort((a, b) =>
+            (history.get(b.id) || 0) - (history.get(a.id) || 0) ||
+            a.name.localeCompare(b.name)
+          );
+        const yet = players
+          .filter(player => !history.has(player.id))
+          .sort((a, b) => a.name.localeCompare(b.name));
+
+        const selectedPlayerId = game.pendingAwards?.[award.id] || "";
+
+        const previousHtml = previous.length
+          ? `<div class="award-history-chips">${
+              previous.map(player => {
+                const count = history.get(player.id) || 0;
+                return `<span class="award-history-chip">${player.name}${count > 1 ? ` ×${count}` : ""}</span>`;
+              }).join("")
+            }</div>`
+          : `<p>No previous recipients yet.</p>`;
+
+        const yetHtml = yet.length
+          ? `<div class="award-history-chips">${
+              yet.map(player =>
+                `<span class="award-history-chip yet ${selectedPlayerId === player.id ? "selected-now" : ""}">${player.name}</span>`
+              ).join("")
+            }</div>`
+          : `<p>Everyone on the current team has received this award before.</p>`;
+
+        return `
+          <article class="post-game-award-card">
+            <div class="post-game-award-title-row">
+              <div>
+                <p class="eyebrow">AWARD ${index + 1}</p>
+                <h3>${award.name}</h3>
+              </div>
+              <div class="post-game-award-number">${index + 1}</div>
+            </div>
+
+            <label>Today's recipient
+              <select class="award-winner-select" data-post-game-award="${award.id}">
+                <option value="">No award this game</option>
+                ${players.map(player =>
+                  `<option value="${player.id}" ${selectedPlayerId === player.id ? "selected" : ""}>${player.number ? `#${player.number} — ` : ""}${player.name}</option>`
+                ).join("")}
+              </select>
+            </label>
+
+            <div class="award-history-grid">
+              <div class="award-history-box">
+                <h4>Previously received</h4>
+                ${previousHtml}
+              </div>
+              <div class="award-history-box">
+                <h4>Yet to receive award</h4>
+                ${yetHtml}
+              </div>
+            </div>
+          </article>
+        `;
+      }).join("");
+    }
+
+    const statsList = document.getElementById("postGamePlayerStatsList");
+    statsList.innerHTML = players.map(player => {
+      const score = game.scoring?.[player.id] || {goals: 0, points: 0};
+      const goals = Number(score.goals || 0);
+      const points = Number(score.points || 0);
+      const total = goals * 6 + points;
+
+      return `
+        <div class="post-game-player-stat-row">
+          <div class="player-number">${player.number || "—"}</div>
+          <div>
+            <strong>${player.name}</strong>
+            <small>${goals} goal${goals === 1 ? "" : "s"} • ${points} point${points === 1 ? "" : "s"}</small>
+          </div>
+          <div class="post-game-player-score">
+            ${total}
+            <small>score</small>
+          </div>
+        </div>
+      `;
+    }).join("");
+  };
+
+  const openPostGameAwards = () => {
+    const game = liveGameForCurrentTeam();
+    if (!game) {
+      renderTeamHome();
+      showScreen("teamHomeScreen");
+      return;
+    }
+
+    if (!game.pendingAwards) {
+      game.pendingAwards = {};
+      saveCurrentLiveGame(game);
+    }
+
+    renderPostGameAwards();
+    showScreen("postGameAwardsScreen");
+  };
+
+  document.querySelector("[data-finish-game]")?.addEventListener("click", () => {
+    openPostGameAwards();
+  });
+
+  document.querySelector("[data-back-live-from-awards]")?.addEventListener("click", () => {
+    renderLiveGame();
+    showScreen("liveGameScreen");
+  });
+
+  document.addEventListener("change", event => {
+    const select = event.target.closest("[data-post-game-award]");
+    if (!select) return;
+
+    const game = liveGameForCurrentTeam();
+    if (!game) return;
+
+    if (!game.pendingAwards) game.pendingAwards = {};
+    game.pendingAwards[select.dataset.postGameAward] = select.value;
+    saveCurrentLiveGame(game);
+    renderPostGameAwards();
+  });
+
+  const completedAwardAssignments = (game, awards, players) => {
+    const playerMap = new Map(players.map(player => [player.id, player]));
+
+    return awards.map(award => {
+      const playerId = game.pendingAwards?.[award.id] || "";
+      const player = playerMap.get(playerId);
+
+      return {
+        awardId: award.id,
+        awardName: award.name,
+        playerId: player?.id || null,
+        playerName: player?.name || null,
+        given: Boolean(player)
+      };
+    });
+  };
+
+  document.querySelector("[data-save-completed-game]")?.addEventListener("click", () => {
+    const team = getCurrentTeam();
+    const live = liveGameForCurrentTeam();
+    if (!team || !live) return;
+
+    const totals = scoreTotalsForGame(live);
+    const players = playersForTeam(currentTeamId);
+    const settings = fullSettingsForCurrentTeam();
+    const awards = settings.awards || [];
+
+    const awardOutcomes = completedAwardAssignments(live, awards, players);
+    const assignedAwards = awardOutcomes.filter(award => award.given);
+    const unassignedCount = awardOutcomes.filter(award => !award.given).length;
+
+    const confirmText = unassignedCount
+      ? `Save Round ${live.round} as complete? ${unassignedCount} award${unassignedCount === 1 ? "" : "s"} will be recorded as not given this game.`
+      : `Save Round ${live.round} as complete?`;
+
+    if (!confirm(confirmText)) return;
+
+    const button = document.querySelector("[data-save-completed-game]");
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Saving…";
+    }
+
+    const participantIds = new Set(Object.keys(live.scoring || {}));
+    const playerStats = players
+      .filter(player => participantIds.has(player.id))
+      .map(player => {
+        const score = live.scoring?.[player.id] || {goals: 0, points: 0};
+        const goals = Number(score.goals || 0);
+        const points = Number(score.points || 0);
+
+        return {
+          playerId: player.id,
+          playerName: player.name,
+          number: player.number || null,
+          goals,
+          points,
+          score: goals * 6 + points
+        };
+      });
+
+    const completedGame = {
+      id: "game_" + Date.now(),
+      teamId: currentTeamId,
+      teamName: team.name,
+      round: live.round,
+      date: live.date,
+      captainIds: [...(live.captainIds || [])],
+      trackInterchange: Boolean(live.trackInterchange),
+      scoring: JSON.parse(JSON.stringify(live.scoring || {})),
+      playerStats,
+      interchange: JSON.parse(JSON.stringify(live.interchange || {})),
+      hiddenInterchangeQuarters: [...(live.hiddenInterchangeQuarters || [])],
+      awards: awardOutcomes,
+      teamGoals: totals.goals,
+      teamPoints: totals.points,
+      teamScore: totals.total,
+      startedAt: live.startedAt,
+      completedAt: new Date().toISOString(),
+      status: "completed"
+    };
+
+    const allGames = getAllCompletedGames();
+    allGames.push(completedGame);
+    saveAllCompletedGames(allGames);
+
+    const allPlayers = getAllPlayers().map(player => {
+      if (!participantIds.has(player.id) || player.teamId !== currentTeamId) {
+        return player;
+      }
+
+      return {
+        ...player,
+        careerGames: Number(player.careerGames || 0) + 1
+      };
+    });
+    saveAllPlayers(allPlayers);
+
+    const liveGames = getLiveGames();
+    delete liveGames[currentTeamId];
+    saveLiveGames(liveGames);
+
+    const nextGames = getNextGames();
+    delete nextGames[currentTeamId];
+    saveNextGames(nextGames);
+
+    currentLiveQuarter = 1;
+
+    renderTeamHome();
+
+    const notice = document.getElementById("teamHomeNotice");
+    if (notice) {
+      notice.textContent =
+        `✓ Round ${completedGame.round} saved • Team score ${completedGame.teamScore} • Career games updated`;
+      notice.classList.remove("hidden");
+    }
+
+    showScreen("teamHomeScreen");
+
+    if (button) {
+      button.disabled = false;
+      button.textContent = "Save Game & Finish";
+    }
   });
 
   if ("serviceWorker" in navigator) {

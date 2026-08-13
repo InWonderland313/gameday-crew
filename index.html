@@ -579,6 +579,8 @@
   </header>
 
   <div class="content manager-content">
+    <div id="teamHomeNotice" class="completion-notice hidden"></div>
+
     <section class="game-card">
       <div class="game-card-top">
         <div>
@@ -846,8 +848,8 @@
 
     <section class="live-section finish-game-panel">
       <p class="muted">Your scoring is saved as you go.</p>
-      <button class="btn danger-outline full-width" data-finish-game-placeholder>Finish Game</button>
-      <small>Post-game awards are the next build, so Finish Game won't close this test game yet.</small>
+      <button class="btn danger-outline full-width" data-finish-game>Finish Game</button>
+      <small>You'll choose today's awards before the game is saved as complete.</small>
     </section>
   </div>
 
@@ -857,6 +859,75 @@
     <button class="manager-nav-item manager-nav-active" data-manager-tab="game"><span>🏉</span><small>Game</small></button>
     <button class="manager-nav-item" data-manager-tab="stats"><span>📊</span><small>Stats</small></button>
     <button class="manager-nav-item" data-manager-tab="awards"><span>🏆</span><small>Awards</small></button>
+  </nav>
+</section>
+
+
+<section id="postGameAwardsScreen" class="screen manager-screen">
+  <header class="post-game-hero">
+    <div class="post-game-hero-inner">
+      <button class="icon-btn" data-back-live-from-awards aria-label="Back to live game">←</button>
+      <div>
+        <p class="eyebrow">POST-GAME</p>
+        <h1 id="postGameAwardsRound">Round 1 Awards</h1>
+        <p id="postGameAwardsDate" class="team-meta">—</p>
+      </div>
+    </div>
+  </header>
+
+  <div class="content manager-content">
+    <section class="post-game-score-card">
+      <div>
+        <p class="eyebrow">FINAL SCORING</p>
+        <h2 id="postGameTeamName">Team</h2>
+        <p id="postGameScoreBreakdown" class="muted">0 goals • 0 points</p>
+      </div>
+      <strong id="postGameTotalScore">0</strong>
+    </section>
+
+    <section class="manager-section">
+      <div class="section-heading-row">
+        <div>
+          <p class="eyebrow">TODAY'S AWARDS</p>
+          <h2 class="section-title">Who earned them?</h2>
+        </div>
+      </div>
+      <p class="muted awards-optional-copy">
+        Awards are optional. Leave any award as <strong>No award this game</strong> if nobody earned it today.
+      </p>
+
+      <div id="postGameAwardsList" class="post-game-awards-list"></div>
+
+      <div id="postGameNoAwards" class="soft-empty hidden">
+        <span>🏆</span>
+        <strong>No awards configured for this team</strong>
+        <small>You can still save the completed game. Awards can be added later in Team Settings.</small>
+      </div>
+    </section>
+
+    <section class="manager-section">
+      <div class="post-game-player-summary">
+        <p class="eyebrow">PLAYER STATS</p>
+        <h2 class="section-title">Game summary</h2>
+        <div id="postGamePlayerStatsList" class="post-game-player-stats-list"></div>
+      </div>
+    </section>
+
+    <section class="complete-game-card">
+      <div class="complete-game-note">
+        <strong>Ready to save?</strong>
+        <span>This records the game, awards and player scoring, adds one career game to the team list, and clears the live game.</span>
+      </div>
+      <button class="btn btn-primary full-width" data-save-completed-game>Save Game & Finish</button>
+    </section>
+  </div>
+
+  <nav class="manager-bottom-nav">
+    <button class="manager-nav-item" data-manager-tab="home"><span>⌂</span><small>Home</small></button>
+    <button class="manager-nav-item" data-manager-tab="team"><span>👥</span><small>Team</small></button>
+    <button class="manager-nav-item" data-manager-tab="game"><span>🏉</span><small>Game</small></button>
+    <button class="manager-nav-item" data-manager-tab="stats"><span>📊</span><small>Stats</small></button>
+    <button class="manager-nav-item manager-nav-active" data-manager-tab="awards"><span>🏆</span><small>Awards</small></button>
   </nav>
 </section>
 
