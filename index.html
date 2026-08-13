@@ -304,8 +304,8 @@
       <div class="stat-grid team-stat-grid">
         <div class="stat-card"><span>🧒</span><strong id="teamPlayerCount">0</strong><small>Players</small></div>
         <div class="stat-card"><span>👤</span><strong>0</strong><small>Managers</small></div>
-        <div class="stat-card"><span>🏉</span><strong>0</strong><small>Games</small></div>
-        <div class="stat-card"><span>🏆</span><strong>0</strong><small>Awards</small></div>
+        <div class="stat-card"><span>🏉</span><strong id="teamGameCount">0</strong><small>Games</small></div>
+        <div class="stat-card"><span>🏆</span><strong id="teamAwardCount">0</strong><small>Awards</small></div>
       </div>
     </section>
 
@@ -704,6 +704,127 @@
   </nav>
 </section>
 
+
+
+<section id="managerTeamScreen" class="screen manager-screen">
+  <header class="manager-hero">
+    <div class="manager-hero-inner">
+      <button class="icon-btn" data-back-manager-team-home aria-label="Back to Team Home">←</button>
+      <div class="team-badge-large" id="managerTeamBadge">U14</div>
+      <div class="team-hero-copy">
+        <p class="eyebrow">TEAM</p>
+        <h1 id="managerTeamName">Team</h1>
+        <p id="managerTeamMeta" class="team-meta">Season 2027</p>
+      </div>
+    </div>
+  </header>
+
+  <div class="content manager-content">
+    <section class="manager-team-summary">
+      <div class="section-heading-row">
+        <div>
+          <p class="eyebrow">SEASON SNAPSHOT</p>
+          <h2 class="section-title">Team so far</h2>
+        </div>
+      </div>
+
+      <div class="manager-team-stat-grid">
+        <div class="manager-team-stat"><span>🧒</span><strong id="managerTeamPlayerCount">0</strong><small>Players</small></div>
+        <div class="manager-team-stat"><span>🏉</span><strong id="managerTeamGamesCount">0</strong><small>Games</small></div>
+        <div class="manager-team-stat"><span>🎯</span><strong id="managerTeamScoreTotal">0</strong><small>Points scored</small></div>
+        <div class="manager-team-stat"><span>🏆</span><strong id="managerTeamAwardsCount">0</strong><small>Awards given</small></div>
+      </div>
+    </section>
+
+    <section class="manager-section">
+      <div class="section-heading-row">
+        <div>
+          <p class="eyebrow">TEAM LIST</p>
+          <h2 class="section-title">Players</h2>
+        </div>
+      </div>
+
+      <div id="managerTeamPlayerList" class="manager-player-list"></div>
+
+      <div id="managerTeamEmpty" class="soft-empty hidden">
+        <span>🧒</span>
+        <strong>No players yet</strong>
+        <small>The Club Admin needs to add the team list before player profiles can appear here.</small>
+      </div>
+    </section>
+  </div>
+
+  <nav class="manager-bottom-nav">
+    <button class="manager-nav-item" data-manager-tab="home"><span>⌂</span><small>Home</small></button>
+    <button class="manager-nav-item manager-nav-active" data-manager-tab="team"><span>👥</span><small>Team</small></button>
+    <button class="manager-nav-item" data-manager-tab="game"><span>🏉</span><small>Game</small></button>
+    <button class="manager-nav-item" data-manager-tab="stats"><span>📊</span><small>Stats</small></button>
+    <button class="manager-nav-item" data-manager-tab="awards"><span>🏆</span><small>Awards</small></button>
+  </nav>
+</section>
+
+<section id="managerPlayerProfileScreen" class="screen manager-screen">
+  <header class="player-profile-hero">
+    <div class="player-profile-hero-inner">
+      <button class="icon-btn" data-back-manager-team-list aria-label="Back to Team">←</button>
+      <div class="player-profile-number" id="profilePlayerNumber">—</div>
+      <div class="player-profile-title">
+        <p class="eyebrow">PLAYER PROFILE</p>
+        <h1 id="profilePlayerName">Player</h1>
+        <p id="profilePlayerLeadership" class="team-meta">Team member</p>
+      </div>
+    </div>
+  </header>
+
+  <div class="content manager-content">
+    <section class="player-profile-stat-grid">
+      <div class="profile-stat-card"><span>📚</span><strong id="profileCareerGames">0</strong><small>Career games</small></div>
+      <div class="profile-stat-card"><span>🏉</span><strong id="profileSeasonGames">0</strong><small>Season games</small></div>
+      <div class="profile-stat-card"><span>🥅</span><strong id="profileSeasonGoals">0</strong><small>Goals</small></div>
+      <div class="profile-stat-card"><span>•</span><strong id="profileSeasonPoints">0</strong><small>Points</small></div>
+      <div class="profile-stat-card"><span>🎯</span><strong id="profileSeasonScore">0</strong><small>Score</small></div>
+      <div class="profile-stat-card"><span>🏆</span><strong id="profileAwardCount">0</strong><small>Awards</small></div>
+    </section>
+
+    <section class="manager-section">
+      <div class="section-heading-row">
+        <div>
+          <p class="eyebrow">AWARDS</p>
+          <h2 class="section-title">Award history</h2>
+        </div>
+      </div>
+      <div id="profileAwardHistory" class="profile-award-history"></div>
+      <div id="profileNoAwards" class="soft-empty hidden">
+        <span>🏆</span>
+        <strong>No awards yet</strong>
+        <small>This player hasn't received a configured team award in a completed game yet.</small>
+      </div>
+    </section>
+
+    <section class="manager-section">
+      <div class="section-heading-row">
+        <div>
+          <p class="eyebrow">GAME HISTORY</p>
+          <h2 class="section-title">This season</h2>
+        </div>
+      </div>
+      <div id="profileGameHistory" class="profile-game-history"></div>
+      <div id="profileNoGames" class="soft-empty hidden">
+        <span>🏉</span>
+        <strong>No completed games yet</strong>
+        <small>Completed game stats will appear here.</small>
+      </div>
+    </section>
+  </div>
+
+  <nav class="manager-bottom-nav">
+    <button class="manager-nav-item" data-manager-tab="home"><span>⌂</span><small>Home</small></button>
+    <button class="manager-nav-item manager-nav-active" data-manager-tab="team"><span>👥</span><small>Team</small></button>
+    <button class="manager-nav-item" data-manager-tab="game"><span>🏉</span><small>Game</small></button>
+    <button class="manager-nav-item" data-manager-tab="stats"><span>📊</span><small>Stats</small></button>
+    <button class="manager-nav-item" data-manager-tab="awards"><span>🏆</span><small>Awards</small></button>
+  </nav>
+</section>
 
 <section id="gameSetupScreen" class="screen manager-screen">
   <header class="game-setup-hero">

@@ -282,6 +282,19 @@
     if (!currentTeamId) return;
     const players = playersForTeam(currentTeamId);
     document.getElementById("teamPlayerCount").textContent = String(players.length);
+
+    const completedGames = typeof gamesForTeam === "function"
+      ? gamesForTeam(currentTeamId)
+      : [];
+    const awardsGiven = completedGames.reduce((total, game) =>
+      total + (game.awards || []).filter(award => award.playerId && award.given !== false).length
+    , 0);
+
+    const teamGameCount = document.getElementById("teamGameCount");
+    const teamAwardCount = document.getElementById("teamAwardCount");
+    if (teamGameCount) teamGameCount.textContent = String(completedGames.length);
+    if (teamAwardCount) teamAwardCount.textContent = String(awardsGiven);
+
     document.getElementById("playersSetupSummary").textContent = players.length
       ? `${players.length} player${players.length === 1 ? "" : "s"} added.`
       : "Add names, numbers and career games.";
@@ -1397,6 +1410,270 @@
     openGameSetup();
   });
 
+
+  let managerProfilePlayerId = null;
+
+  const completedStatForPlayer = (game, playerId) => {
+    const recorded = (game.playerStats || []).find(stat => stat.playerId === playerId);
+    if (recorded) {
+      return {
+        goals: Number(recorded.goals || 0),
+        points: Number(recorded.points || 0),
+        score: Number(recorded.score || 0)
+      };
+    }
+
+    const legacy = game.scoring?.[playerId];
+    if (legacy) {
+      const goals = Number(legacy.goals || 0);
+      const points = Number(legacy.points || 0);
+      return {goals, points, score: goals * 6 + points};
+    }
+
+    return null;
+  };
+
+  const seasonStatsForPlayer = playerId => {
+    const games = gamesForTeam(currentTeamId);
+    let seasonGames = 0;
+    let goals = 0;
+    let points = 0;
+    let awards = 0;
+
+    games.forEach(game => {
+      const stat = completedStatForPlayer(game, playerId);
+      if (stat) {
+        seasonGames += 1;
+        goals += stat.goals;
+        points += stat.points;
+      }
+
+      awards += (game.awards || []).filter(award =>
+        award.playerId === playerId && award.given !== false
+      ).length;
+    });
+
+    return {
+      seasonGames,
+      goals,
+      points,
+      score: goals * 6 + points,
+      awards
+    };
+  };
+
+  const leadershipLabelForPlayer = playerId => {
+    const team = getCurrentTeam();
+    if (!team) return "Team member";
+
+    if (["U9", "U10", "U12"].includes(team.ageGroup)) {
+      const turns = captainCountForPlayer(playerId);
+      return turns
+        ? `${turns} captain turn${turns === 1 ? "" : "s"} this season`
+        : "Yet to captain this season";
+    }
+
+    const settings = fullSettingsForCurrentTeam();
+    if ((settings.captains || []).includes(playerId)) return "Season Captain";
+    if ((settings.viceCaptains || []).includes(playerId)) return "Season Vice Captain";
+    return "Team member";
+  };
+
+  const renderManagerTeam = () => {
+    const team = getCurrentTeam();
+    if (!team) return;
+
+    const players = [...playersForTeam(currentTeamId)].sort((a, b) =>
+      Number(a.number || 999) - Number(b.number || 999) ||
+      a.name.localeCompare(b.name)
+    );
+    const games = gamesForTeam(currentTeamId);
+    const totalScore = games.reduce((sum, game) =>
+      sum + Number(game.teamScore || 0)
+    , 0);
+    const awardsGiven = games.reduce((sum, game) =>
+      sum + (game.awards || []).filter(award => award.playerId && award.given !== false).length
+    , 0);
+
+    document.getElementById("managerTeamBadge").textContent = team.ageGroup || "TEAM";
+    document.getElementById("managerTeamName").textContent = team.name;
+
+    const club = (() => {
+      try { return JSON.parse(localStorage.getItem("gdc_v2_demo_club") || "{}"); }
+      catch { return {}; }
+    })();
+    const bits = [team.ageGroup, team.category];
+    if (team.division) bits.push(team.division);
+    bits.push(`Season ${club.season || 2027}`);
+    document.getElementById("managerTeamMeta").textContent = bits.filter(Boolean).join(" • ");
+
+    document.getElementById("managerTeamPlayerCount").textContent = String(players.length);
+    document.getElementById("managerTeamGamesCount").textContent = String(games.length);
+    document.getElementById("managerTeamScoreTotal").textContent = String(totalScore);
+    document.getElementById("managerTeamAwardsCount").textContent = String(awardsGiven);
+
+    const list = document.getElementById("managerTeamPlayerList");
+    const empty = document.getElementById("managerTeamEmpty");
+
+    if (!players.length) {
+      list.innerHTML = "";
+      empty?.classList.remove("hidden");
+      return;
+    }
+
+    empty?.classList.add("hidden");
+
+    list.innerHTML = players.map(player => {
+      const stats = seasonStatsForPlayer(player.id);
+      const leadership = leadershipLabelForPlayer(player.id);
+
+      return `
+        <button class="manager-player-card" data-manager-player-id="${player.id}">
+          <div class="player-number">${player.number || "—"}</div>
+          <div>
+            <strong>${player.name}</strong>
+            <small>${Number(player.careerGames || 0)} career games • ${leadership}</small>
+            <div class="manager-player-mini-stats">
+              <span class="manager-player-mini-stat">🏉 ${stats.seasonGames} games</span>
+              <span class="manager-player-mini-stat">🥅 ${stats.goals} G</span>
+              <span class="manager-player-mini-stat">• ${stats.points} P</span>
+              <span class="manager-player-mini-stat">🏆 ${stats.awards}</span>
+            </div>
+          </div>
+          <span class="manager-player-arrow">›</span>
+        </button>
+      `;
+    }).join("");
+  };
+
+  const openManagerTeam = () => {
+    renderManagerTeam();
+    showScreen("managerTeamScreen");
+  };
+
+  const playerAwardHistory = playerId => {
+    const counts = new Map();
+
+    gamesForTeam(currentTeamId).forEach(game => {
+      (game.awards || []).forEach(award => {
+        if (award.playerId !== playerId || award.given === false) return;
+        const key = award.awardName || "Award";
+        counts.set(key, (counts.get(key) || 0) + 1);
+      });
+    });
+
+    return [...counts.entries()]
+      .map(([name, count]) => ({name, count}))
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  };
+
+  const gamesForPlayer = playerId => {
+    return gamesForTeam(currentTeamId)
+      .map(game => ({game, stat: completedStatForPlayer(game, playerId)}))
+      .filter(item => item.stat)
+      .sort((a, b) => {
+        const dateCompare = String(b.game.date || "").localeCompare(String(a.game.date || ""));
+        if (dateCompare) return dateCompare;
+        return Number(b.game.round || 0) - Number(a.game.round || 0);
+      });
+  };
+
+  const renderManagerPlayerProfile = playerId => {
+    const player = getAllPlayers().find(item =>
+      item.id === playerId && item.teamId === currentTeamId
+    );
+    if (!player) return;
+
+    managerProfilePlayerId = player.id;
+
+    const stats = seasonStatsForPlayer(player.id);
+    const awards = playerAwardHistory(player.id);
+    const history = gamesForPlayer(player.id);
+
+    document.getElementById("profilePlayerNumber").textContent = player.number || "—";
+    document.getElementById("profilePlayerName").textContent = player.name;
+    document.getElementById("profilePlayerLeadership").textContent =
+      leadershipLabelForPlayer(player.id);
+
+    document.getElementById("profileCareerGames").textContent =
+      String(Number(player.careerGames || 0));
+    document.getElementById("profileSeasonGames").textContent =
+      String(stats.seasonGames);
+    document.getElementById("profileSeasonGoals").textContent =
+      String(stats.goals);
+    document.getElementById("profileSeasonPoints").textContent =
+      String(stats.points);
+    document.getElementById("profileSeasonScore").textContent =
+      String(stats.score);
+    document.getElementById("profileAwardCount").textContent =
+      String(stats.awards);
+
+    const awardWrap = document.getElementById("profileAwardHistory");
+    const noAwards = document.getElementById("profileNoAwards");
+
+    if (!awards.length) {
+      awardWrap.innerHTML = "";
+      noAwards?.classList.remove("hidden");
+    } else {
+      noAwards?.classList.add("hidden");
+      awardWrap.innerHTML = awards.map(award => `
+        <div class="profile-award-card">
+          <div class="profile-award-icon">🏆</div>
+          <div>
+            <strong>${award.name}</strong>
+            <small>Received ${award.count} time${award.count === 1 ? "" : "s"} this season</small>
+          </div>
+          <span class="profile-award-count">${award.count}</span>
+        </div>
+      `).join("");
+    }
+
+    const gameWrap = document.getElementById("profileGameHistory");
+    const noGames = document.getElementById("profileNoGames");
+
+    if (!history.length) {
+      gameWrap.innerHTML = "";
+      noGames?.classList.remove("hidden");
+    } else {
+      noGames?.classList.add("hidden");
+      gameWrap.innerHTML = history.map(({game, stat}) => {
+        const wonAwards = (game.awards || []).filter(award =>
+          award.playerId === player.id && award.given !== false
+        );
+        const awardHtml = wonAwards.length
+          ? `<div class="profile-game-awards">${
+              wonAwards.map(award =>
+                `<span class="profile-game-award-chip">🏆 ${award.awardName}</span>`
+              ).join("")
+            }</div>`
+          : "";
+
+        return `
+          <div class="profile-game-card">
+            <div class="profile-game-round">
+              <strong>R${game.round || "—"}</strong>
+              <small>${game.date ? new Date(game.date + "T12:00:00").toLocaleDateString("en-AU", {day:"numeric", month:"short"}) : "—"}</small>
+            </div>
+            <div>
+              <strong>${stat.goals} goal${stat.goals === 1 ? "" : "s"} • ${stat.points} point${stat.points === 1 ? "" : "s"}</strong>
+              <small>Team score ${Number(game.teamScore || 0)}</small>
+              ${awardHtml}
+            </div>
+            <div class="profile-game-score">
+              <strong>${stat.score}</strong>
+              <small>player score</small>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+  };
+
+  const openManagerPlayerProfile = playerId => {
+    renderManagerPlayerProfile(playerId);
+    showScreen("managerPlayerProfileScreen");
+  };
+
   const managerTabCopy = {
     team: {
       icon: "👥",
@@ -1450,6 +1727,8 @@
       if (tab === "home") {
         renderTeamHome();
         showScreen("teamHomeScreen");
+      } else if (tab === "team") {
+        openManagerTeam();
       } else if (tab === "game") {
         openGameSetup();
       } else {
@@ -1465,6 +1744,25 @@
     });
   });
 
+
+
+  document.addEventListener("click", event => {
+    const managerPlayerCard = event.target.closest("[data-manager-player-id]");
+    if (!managerPlayerCard) return;
+
+    openManagerPlayerProfile(managerPlayerCard.dataset.managerPlayerId);
+  });
+
+  document.querySelector("[data-back-manager-team-home]")?.addEventListener("click", () => {
+    renderTeamHome();
+    showScreen("teamHomeScreen");
+  });
+
+  document.querySelector("[data-back-manager-team-list]")?.addEventListener("click", () => {
+    managerProfilePlayerId = null;
+    renderManagerTeam();
+    showScreen("managerTeamScreen");
+  });
 
   const LIVE_GAME_KEY = "gdc_v2_demo_live_games";
   let selectedGameCaptains = [];

@@ -603,3 +603,110 @@ input:focus,select:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(244,
   .post-game-player-stat-row{grid-template-columns:44px 1fr}
   .post-game-player-score{grid-column:2;text-align:left}
 }
+
+/* V2.10 Manager Team + Player Profiles */
+.manager-team-summary{
+  background:#fff;border:1px solid var(--line);border-radius:18px;padding:16px;
+  box-shadow:0 6px 20px rgba(13,34,68,.05)
+}
+.manager-team-stat-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px
+}
+.manager-team-stat{
+  background:#F8F9FB;border:1px solid var(--line);border-radius:14px;padding:12px 8px;text-align:center
+}
+.manager-team-stat span{font-size:21px}
+.manager-team-stat strong{display:block;color:var(--navy);font-size:21px;margin:6px 0 2px}
+.manager-team-stat small{display:block;color:var(--muted);font-size:10px}
+
+.manager-player-list{display:grid;gap:10px}
+.manager-player-card{
+  width:100%;display:grid;grid-template-columns:52px 1fr auto;gap:12px;align-items:center;
+  text-align:left;background:#fff;border:1px solid var(--line);border-radius:16px;padding:12px;
+  box-shadow:0 5px 18px rgba(13,34,68,.04)
+}
+.manager-player-card:hover{border-color:#C7D0DC}
+.manager-player-card .player-number{
+  width:50px;height:50px;border-radius:13px;background:var(--navy);color:var(--gold);
+  display:grid;place-items:center;font-weight:900;font-size:18px
+}
+.manager-player-card strong{display:block;color:var(--navy);font-size:15px}
+.manager-player-card small{display:block;color:var(--muted);margin-top:3px;line-height:1.35}
+.manager-player-mini-stats{
+  display:flex;flex-wrap:wrap;gap:6px;margin-top:7px
+}
+.manager-player-mini-stat{
+  display:inline-flex;align-items:center;gap:4px;padding:5px 7px;border-radius:999px;
+  background:#F7F8FA;border:1px solid var(--line);font-size:10px;color:var(--navy);font-weight:800
+}
+.manager-player-arrow{font-size:24px;color:var(--muted)}
+
+.player-profile-hero{
+  background:linear-gradient(135deg,var(--navy),var(--navy-2));color:#fff
+}
+.player-profile-hero-inner{
+  max-width:760px;margin:auto;display:flex;align-items:center;gap:14px;padding:20px 18px 24px
+}
+.player-profile-number{
+  width:62px;height:62px;border-radius:16px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);
+  color:var(--gold);display:grid;place-items:center;font-size:24px;font-weight:900;flex:0 0 62px
+}
+.player-profile-title h1{margin:3px 0 4px;font-size:27px}
+
+.player-profile-stat-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:10px
+}
+.profile-stat-card{
+  background:#fff;border:1px solid var(--line);border-radius:15px;padding:13px 8px;text-align:center;
+  box-shadow:0 5px 18px rgba(13,34,68,.04)
+}
+.profile-stat-card span{font-size:20px}
+.profile-stat-card strong{display:block;color:var(--navy);font-size:23px;margin:5px 0 2px}
+.profile-stat-card small{color:var(--muted);font-size:10px}
+
+.profile-award-history{display:grid;gap:9px}
+.profile-award-card{
+  display:grid;grid-template-columns:42px 1fr auto;gap:10px;align-items:center;
+  background:#fff;border:1px solid var(--line);border-radius:14px;padding:11px 12px
+}
+.profile-award-icon{
+  width:40px;height:40px;border-radius:11px;background:var(--gold-soft);display:grid;place-items:center
+}
+.profile-award-card strong{display:block;color:var(--navy)}
+.profile-award-card small{display:block;color:var(--muted);margin-top:3px}
+.profile-award-count{
+  background:var(--navy);color:#fff;border-radius:999px;padding:6px 9px;font-size:11px;font-weight:900
+}
+
+.profile-game-history{display:grid;gap:9px}
+.profile-game-card{
+  background:#fff;border:1px solid var(--line);border-radius:15px;padding:12px;
+  display:grid;grid-template-columns:56px 1fr auto;gap:12px;align-items:center
+}
+.profile-game-round{
+  width:54px;height:54px;border-radius:13px;background:var(--navy);color:#fff;
+  display:grid;place-items:center;align-content:center;text-align:center
+}
+.profile-game-round strong{color:var(--gold);font-size:18px;line-height:1}
+.profile-game-round small{font-size:9px;margin-top:4px}
+.profile-game-card>div:nth-child(2)>strong{display:block;color:var(--navy)}
+.profile-game-card>div:nth-child(2)>small{display:block;color:var(--muted);margin-top:3px}
+.profile-game-awards{
+  display:flex;flex-wrap:wrap;gap:5px;margin-top:7px
+}
+.profile-game-award-chip{
+  display:inline-flex;align-items:center;gap:4px;padding:4px 7px;border-radius:999px;
+  background:var(--gold-soft);border:1px solid #F1D179;font-size:10px;color:var(--navy);font-weight:800
+}
+.profile-game-score{
+  text-align:right;color:var(--navy)
+}
+.profile-game-score strong{display:block;font-size:24px}
+.profile-game-score small{display:block;color:var(--muted);font-size:9px;margin-top:2px}
+
+@media(max-width:620px){
+  .manager-team-stat-grid{grid-template-columns:repeat(2,1fr)}
+  .player-profile-stat-grid{grid-template-columns:repeat(2,1fr)}
+  .profile-game-card{grid-template-columns:52px 1fr}
+  .profile-game-score{grid-column:2;text-align:left}
+}
