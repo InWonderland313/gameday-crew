@@ -1052,6 +1052,152 @@
   </nav>
 </section>
 
+
+<section id="managerStatsScreen" class="screen manager-screen">
+  <header class="manager-hero">
+    <div class="manager-hero-inner">
+      <button class="icon-btn" data-back-manager-stats-home aria-label="Back to Team Home">←</button>
+      <div class="team-badge-large" id="statsTeamBadge">U14</div>
+      <div class="team-hero-copy">
+        <p class="eyebrow">STATS</p>
+        <h1 id="statsTeamName">Team Stats</h1>
+        <p id="statsTeamMeta" class="team-meta">Season 2027</p>
+      </div>
+    </div>
+  </header>
+
+  <div class="content manager-content">
+    <section class="manager-team-summary">
+      <div class="section-heading-row">
+        <div>
+          <p class="eyebrow">SEASON TOTALS</p>
+          <h2 class="section-title">At a glance</h2>
+        </div>
+        <button class="text-btn stats-export-btn" data-export-season-stats>Export CSV</button>
+      </div>
+
+      <div class="manager-team-stat-grid stats-summary-grid">
+        <div class="manager-team-stat"><span>🏉</span><strong id="statsGamesTotal">0</strong><small>Games</small></div>
+        <div class="manager-team-stat"><span>🥅</span><strong id="statsGoalsTotal">0</strong><small>Goals</small></div>
+        <div class="manager-team-stat"><span>•</span><strong id="statsPointsTotal">0</strong><small>Points</small></div>
+        <div class="manager-team-stat"><span>🎯</span><strong id="statsScoreTotal">0</strong><small>Team score</small></div>
+      </div>
+    </section>
+
+    <section class="manager-section">
+      <div class="section-heading-row">
+        <div>
+          <p class="eyebrow">PLAYER LEADERS</p>
+          <h2 class="section-title">Season leaderboard</h2>
+        </div>
+      </div>
+      <div id="statsPlayerLeaderboard" class="stats-leaderboard"></div>
+      <div id="statsNoPlayers" class="soft-empty hidden">
+        <span>📊</span>
+        <strong>No player stats yet</strong>
+        <small>Player totals will appear after completed games are saved.</small>
+      </div>
+    </section>
+
+    <section class="manager-section">
+      <div class="section-heading-row">
+        <div>
+          <p class="eyebrow">GAME HISTORY</p>
+          <h2 class="section-title">Completed games</h2>
+        </div>
+      </div>
+      <div id="statsGameHistory" class="stats-game-history"></div>
+      <div id="statsNoGames" class="soft-empty hidden">
+        <span>🏉</span>
+        <strong>No completed games yet</strong>
+        <small>Finished games will appear here with team and player scoring.</small>
+      </div>
+    </section>
+  </div>
+
+  <nav class="manager-bottom-nav">
+    <button class="manager-nav-item" data-manager-tab="home"><span>⌂</span><small>Home</small></button>
+    <button class="manager-nav-item" data-manager-tab="team"><span>👥</span><small>Team</small></button>
+    <button class="manager-nav-item" data-manager-tab="game"><span>🏉</span><small>Game</small></button>
+    <button class="manager-nav-item manager-nav-active" data-manager-tab="stats"><span>📊</span><small>Stats</small></button>
+    <button class="manager-nav-item" data-manager-tab="awards"><span>🏆</span><small>Awards</small></button>
+  </nav>
+</section>
+
+<section id="managerAwardsScreen" class="screen manager-screen">
+  <header class="manager-hero">
+    <div class="manager-hero-inner">
+      <button class="icon-btn" data-back-manager-awards-home aria-label="Back to Team Home">←</button>
+      <div class="team-badge-large" id="awardsTeamBadge">U14</div>
+      <div class="team-hero-copy">
+        <p class="eyebrow">AWARDS</p>
+        <h1 id="awardsTeamName">Awards History</h1>
+        <p id="awardsTeamMeta" class="team-meta">Season 2027</p>
+      </div>
+    </div>
+  </header>
+
+  <div class="content manager-content">
+    <section class="manager-team-summary">
+      <div class="section-heading-row">
+        <div>
+          <p class="eyebrow">SEASON AWARDS</p>
+          <h2 class="section-title">Awards so far</h2>
+        </div>
+      </div>
+
+      <div class="manager-team-stat-grid awards-summary-grid">
+        <div class="manager-team-stat"><span>🏆</span><strong id="awardsTypesTotal">0</strong><small>Award types</small></div>
+        <div class="manager-team-stat"><span>🎖️</span><strong id="awardsGivenTotal">0</strong><small>Awards given</small></div>
+        <div class="manager-team-stat"><span>🙅</span><strong id="awardsNotGivenTotal">0</strong><small>Not given</small></div>
+        <div class="manager-team-stat"><span>🧒</span><strong id="awardsRecipientsTotal">0</strong><small>Recipients</small></div>
+      </div>
+    </section>
+
+    <section class="manager-section">
+      <div class="section-heading-row">
+        <div>
+          <p class="eyebrow">BY AWARD</p>
+          <h2 class="section-title">Recipient history</h2>
+        </div>
+      </div>
+
+      <div id="managerAwardsHistoryList" class="manager-awards-history-list"></div>
+
+      <div id="managerAwardsEmpty" class="soft-empty hidden">
+        <span>🏆</span>
+        <strong>No award types configured</strong>
+        <small>The Club Admin can add team awards in Team Settings.</small>
+      </div>
+    </section>
+
+    <section class="manager-section">
+      <div class="section-heading-row">
+        <div>
+          <p class="eyebrow">RECENT</p>
+          <h2 class="section-title">Award timeline</h2>
+        </div>
+      </div>
+
+      <div id="managerAwardsTimeline" class="awards-timeline"></div>
+
+      <div id="managerAwardsNoTimeline" class="soft-empty hidden">
+        <span>🎖️</span>
+        <strong>No awards given yet</strong>
+        <small>Recipients will appear here after completed games.</small>
+      </div>
+    </section>
+  </div>
+
+  <nav class="manager-bottom-nav">
+    <button class="manager-nav-item" data-manager-tab="home"><span>⌂</span><small>Home</small></button>
+    <button class="manager-nav-item" data-manager-tab="team"><span>👥</span><small>Team</small></button>
+    <button class="manager-nav-item" data-manager-tab="game"><span>🏉</span><small>Game</small></button>
+    <button class="manager-nav-item" data-manager-tab="stats"><span>📊</span><small>Stats</small></button>
+    <button class="manager-nav-item manager-nav-active" data-manager-tab="awards"><span>🏆</span><small>Awards</small></button>
+  </nav>
+</section>
+
 <section id="managerPlaceholderScreen" class="screen manager-screen">
   <header class="topbar">
     <button class="icon-btn" data-back-manager-home aria-label="Back">←</button>

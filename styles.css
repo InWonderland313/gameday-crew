@@ -710,3 +710,121 @@ input:focus,select:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(244,
   .profile-game-card{grid-template-columns:52px 1fr}
   .profile-game-score{grid-column:2;text-align:left}
 }
+
+/* V2.11 Manager Stats + Awards History */
+.stats-export-btn{
+  border:1px solid var(--line);background:#fff;border-radius:10px;padding:8px 10px;
+  color:var(--navy);font-weight:800
+}
+.stats-export-btn:hover{border-color:#C6CFDA}
+.stats-leaderboard{display:grid;gap:9px}
+.stats-player-row{
+  display:grid;grid-template-columns:46px 1fr repeat(4,72px);gap:10px;align-items:center;
+  background:#fff;border:1px solid var(--line);border-radius:15px;padding:11px 12px
+}
+.stats-rank{
+  width:42px;height:42px;border-radius:12px;background:var(--navy);color:var(--gold);
+  display:grid;place-items:center;font-weight:900
+}
+.stats-player-row strong{display:block;color:var(--navy)}
+.stats-player-row small{display:block;color:var(--muted);margin-top:3px}
+.stats-cell{
+  text-align:center;border-left:1px solid var(--line);padding-left:8px
+}
+.stats-cell strong{font-size:18px}
+.stats-cell small{font-size:9px;text-transform:uppercase;letter-spacing:.04em}
+
+.stats-game-history{display:grid;gap:10px}
+.stats-game-card{
+  background:#fff;border:1px solid var(--line);border-radius:16px;padding:13px;
+  box-shadow:0 5px 18px rgba(13,34,68,.04)
+}
+.stats-game-top{
+  display:grid;grid-template-columns:58px 1fr auto;gap:12px;align-items:center
+}
+.stats-game-round{
+  width:56px;height:56px;border-radius:14px;background:var(--navy);color:#fff;
+  display:grid;place-items:center;align-content:center;text-align:center
+}
+.stats-game-round strong{color:var(--gold);font-size:18px;line-height:1}
+.stats-game-round small{font-size:9px;margin-top:4px}
+.stats-game-copy strong{display:block;color:var(--navy)}
+.stats-game-copy small{display:block;color:var(--muted);margin-top:3px}
+.stats-game-score{text-align:right;color:var(--navy)}
+.stats-game-score strong{display:block;font-size:25px}
+.stats-game-score small{display:block;color:var(--muted);font-size:9px}
+.stats-game-player-lines{
+  display:grid;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)
+}
+.stats-game-player-line{
+  display:flex;justify-content:space-between;gap:12px;font-size:11px;color:var(--muted)
+}
+.stats-game-player-line strong{color:var(--navy)}
+
+.manager-awards-history-list{display:grid;gap:12px}
+.manager-award-history-card{
+  background:#fff;border:1px solid var(--line);border-radius:17px;padding:15px;
+  box-shadow:0 5px 18px rgba(13,34,68,.04)
+}
+.manager-award-history-head{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px
+}
+.manager-award-history-head h3{margin:2px 0 0;color:var(--navy)}
+.manager-award-total{
+  min-width:44px;height:44px;border-radius:12px;background:var(--navy);color:#fff;
+  display:grid;place-items:center;font-weight:900
+}
+.manager-award-columns{
+  display:grid;grid-template-columns:1fr 1fr;gap:10px
+}
+.manager-award-column{
+  background:#F8F9FB;border:1px solid var(--line);border-radius:13px;padding:11px
+}
+.manager-award-column h4{
+  margin:0 0 8px;color:var(--navy);font-size:11px;text-transform:uppercase;letter-spacing:.05em
+}
+.manager-award-recipient-list{display:grid;gap:6px}
+.manager-award-recipient{
+  display:flex;justify-content:space-between;gap:8px;align-items:center;
+  background:#fff;border:1px solid var(--line);border-radius:10px;padding:7px 8px;font-size:11px
+}
+.manager-award-recipient strong{color:var(--navy)}
+.manager-award-recipient span{color:var(--muted)}
+.manager-award-yet{
+  display:flex;flex-wrap:wrap;gap:6px
+}
+.manager-award-yet span{
+  padding:5px 8px;border-radius:999px;background:var(--gold-soft);border:1px solid #F1D179;
+  font-size:10px;color:var(--navy);font-weight:800
+}
+.manager-award-empty-copy{margin:0;color:var(--muted);font-size:11px;line-height:1.45}
+
+.awards-timeline{display:grid;gap:9px}
+.awards-timeline-item{
+  display:grid;grid-template-columns:54px 1fr auto;gap:11px;align-items:center;
+  background:#fff;border:1px solid var(--line);border-radius:14px;padding:11px
+}
+.awards-timeline-round{
+  width:52px;height:52px;border-radius:13px;background:var(--navy);color:#fff;
+  display:grid;place-items:center;align-content:center;text-align:center
+}
+.awards-timeline-round strong{color:var(--gold);font-size:17px;line-height:1}
+.awards-timeline-round small{font-size:9px;margin-top:4px}
+.awards-timeline-item>div:nth-child(2)>strong{display:block;color:var(--navy)}
+.awards-timeline-item>div:nth-child(2)>small{display:block;color:var(--muted);margin-top:3px}
+.awards-timeline-badge{
+  background:var(--gold-soft);border:1px solid #F1D179;border-radius:999px;
+  padding:6px 9px;font-size:10px;font-weight:900;color:var(--navy)
+}
+
+@media(max-width:760px){
+  .stats-player-row{grid-template-columns:44px 1fr repeat(2,62px)}
+  .stats-player-row .stats-cell:nth-last-child(-n+2){display:none}
+}
+@media(max-width:620px){
+  .manager-award-columns{grid-template-columns:1fr}
+  .stats-game-top{grid-template-columns:54px 1fr}
+  .stats-game-score{grid-column:2;text-align:left}
+  .awards-timeline-item{grid-template-columns:50px 1fr}
+  .awards-timeline-badge{grid-column:2;justify-self:start}
+}
