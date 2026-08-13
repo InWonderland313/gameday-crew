@@ -830,6 +830,26 @@
     const team = getCurrentTeam();
     if (!team) return;
 
+    const savedFullSettings = fullSettingsForCurrentTeam();
+    workingAwards = (savedFullSettings.awards || []).map(a => ({...a}));
+    workingMilestones = [...(savedFullSettings.milestones || [50,100,150])];
+
+    renderAwardTypes();
+
+    document.querySelectorAll("[data-milestone-value]").forEach(btn => {
+      const value = Number(btn.dataset.milestoneValue);
+      const selected = workingMilestones.includes(value);
+      btn.classList.toggle("selected", selected);
+      const check = btn.querySelector(".choice-check");
+      if (check) check.textContent = selected ? "✓" : "";
+    });
+
+    const milestoneWindowInput = document.getElementById("milestoneWindowInput");
+    if (milestoneWindowInput) milestoneWindowInput.value = String(savedFullSettings.milestoneWindow || 5);
+
+    document.getElementById("awardsSavedMessage")?.classList.add("hidden");
+    document.getElementById("milestonesSavedMessage")?.classList.add("hidden");
+
     document.getElementById("teamSettingsScreenTitle").textContent = `${team.name} Settings`;
 
     const junior = ["U9","U10","U12"].includes(team.ageGroup);
@@ -923,6 +943,179 @@
 
   updateTeamSettingsSummary();
 
+
+  let workingAwards = [];
+  let workingMilestones = [50, 100, 150];
+
+  const defaultSettingsForTeam = () => ({
+    captains: [],
+    viceCaptains: [],
+    awards: [],
+    milestones: [50, 100, 150],
+    milestoneWindow: 5
+  });
+
+  const fullSettingsForCurrentTeam = () => {
+    const all = getTeamSettings();
+    return {
+      ...defaultSettingsForTeam(),
+      ...(all[currentTeamId] || {})
+    };
+  };
+
+  const renderAwardTypes = () => {
+    const list = document.getElementById("awardTypesList");
+    const empty = document.getElementById("awardTypesEmpty");
+    if (!list || !empty) return;
+
+    if (!workingAwards.length) {
+      list.innerHTML = "";
+      empty.classList.remove("hidden");
+      return;
+    }
+
+    empty.classList.add("hidden");
+    list.innerHTML = workingAwards.map((award, index) => `
+      <div class="award-type-row" data-award-id="${award.id}">
+        <div class="award-order">${index + 1}</div>
+        <input class="award-name-input" data-award-name="${award.id}" value="${award.name.replace(/"/g, "&quot;")}">
+        <div class="award-actions">
+          <button class="small-icon-btn" data-award-up="${award.id}" ${index === 0 ? "disabled" : ""} aria-label="Move up">↑</button>
+          <button class="small-icon-btn" data-award-down="${award.id}" ${index === workingAwards.length - 1 ? "disabled" : ""} aria-label="Move down">↓</button>
+          <button class="small-icon-btn remove" data-award-remove="${award.id}" aria-label="Remove">×</button>
+        </div>
+      </div>
+    `).join("");
+  };
+
+  const saveWorkingAwards = () => {
+    if (!currentTeamId) return;
+    const all = getTeamSettings();
+    all[currentTeamId] = {
+      ...defaultSettingsForTeam(),
+      ...(all[currentTeamId] || {}),
+      awards: workingAwards.map(a => ({ id: a.id, name: a.name.trim() })).filter(a => a.name),
+      updatedAt: new Date().toISOString()
+    };
+    saveTeamSettings(all);
+    document.getElementById("awardsSavedMessage")?.classList.remove("hidden");
+  };
+
+  document.querySelector("[data-add-award-type]")?.addEventListener("click", () => {
+    const input = document.getElementById("newAwardNameInput");
+    const name = input?.value.trim();
+    if (!name) return alert("Enter an award name first.");
+
+    if (workingAwards.some(a => a.name.toLowerCase() === name.toLowerCase())) {
+      return alert("That award already exists.");
+    }
+
+    workingAwards.push({
+      id: "award_" + Date.now(),
+      name
+    });
+
+    if (input) input.value = "";
+    renderAwardTypes();
+    saveWorkingAwards();
+  });
+
+  document.getElementById("newAwardNameInput")?.addEventListener("keydown", event => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      document.querySelector("[data-add-award-type]")?.click();
+    }
+  });
+
+  document.addEventListener("input", event => {
+    const id = event.target?.dataset?.awardName;
+    if (!id) return;
+    const award = workingAwards.find(a => a.id === id);
+    if (!award) return;
+    award.name = event.target.value;
+    document.getElementById("awardsSavedMessage")?.classList.add("hidden");
+  });
+
+  document.addEventListener("change", event => {
+    const id = event.target?.dataset?.awardName;
+    if (!id) return;
+    saveWorkingAwards();
+    renderAwardTypes();
+  });
+
+  document.addEventListener("click", event => {
+    const remove = event.target.closest("[data-award-remove]");
+    if (remove) {
+      const award = workingAwards.find(a => a.id === remove.dataset.awardRemove);
+      if (!award) return;
+      if (!confirm(`Remove "${award.name}" from this team's awards?`)) return;
+      workingAwards = workingAwards.filter(a => a.id !== award.id);
+      renderAwardTypes();
+      saveWorkingAwards();
+      return;
+    }
+
+    const up = event.target.closest("[data-award-up]");
+    if (up) {
+      const index = workingAwards.findIndex(a => a.id === up.dataset.awardUp);
+      if (index > 0) {
+        [workingAwards[index - 1], workingAwards[index]] = [workingAwards[index], workingAwards[index - 1]];
+        renderAwardTypes();
+        saveWorkingAwards();
+      }
+      return;
+    }
+
+    const down = event.target.closest("[data-award-down]");
+    if (down) {
+      const index = workingAwards.findIndex(a => a.id === down.dataset.awardDown);
+      if (index >= 0 && index < workingAwards.length - 1) {
+        [workingAwards[index + 1], workingAwards[index]] = [workingAwards[index], workingAwards[index + 1]];
+        renderAwardTypes();
+        saveWorkingAwards();
+      }
+      return;
+    }
+
+    const milestone = event.target.closest("[data-milestone-value]");
+    if (milestone) {
+      const value = Number(milestone.dataset.milestoneValue);
+      if (workingMilestones.includes(value)) {
+        workingMilestones = workingMilestones.filter(v => v !== value);
+      } else {
+        workingMilestones = [...workingMilestones, value].sort((a,b) => a - b);
+      }
+
+      document.querySelectorAll("[data-milestone-value]").forEach(btn => {
+        const v = Number(btn.dataset.milestoneValue);
+        const selected = workingMilestones.includes(v);
+        btn.classList.toggle("selected", selected);
+        const check = btn.querySelector(".choice-check");
+        if (check) check.textContent = selected ? "✓" : "";
+      });
+
+      document.getElementById("milestonesSavedMessage")?.classList.add("hidden");
+    }
+  });
+
+  document.querySelector("[data-save-milestones]")?.addEventListener("click", () => {
+    if (!currentTeamId) return;
+    if (!workingMilestones.length) {
+      return alert("Choose at least one milestone.");
+    }
+
+    const windowValue = Number(document.getElementById("milestoneWindowInput")?.value || 5);
+    const all = getTeamSettings();
+    all[currentTeamId] = {
+      ...defaultSettingsForTeam(),
+      ...(all[currentTeamId] || {}),
+      milestones: [...workingMilestones],
+      milestoneWindow: windowValue,
+      updatedAt: new Date().toISOString()
+    };
+    saveTeamSettings(all);
+    document.getElementById("milestonesSavedMessage")?.classList.remove("hidden");
+  });
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker.register("./sw.js").catch(err => console.warn("Service worker registration failed:", err));

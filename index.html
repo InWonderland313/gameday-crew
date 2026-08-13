@@ -644,13 +644,72 @@
 
     <div class="settings-panel">
       <div class="settings-panel-header">
-        <div class="settings-icon">🏁</div>
+        <div class="settings-icon">🏆</div>
         <div>
-          <p class="eyebrow">MORE TEAM SETUP</p>
-          <h2>More settings will live here</h2>
-          <p class="muted">Awards setup, milestone preferences and other team options are coming in later builds.</p>
+          <p class="eyebrow">AWARDS</p>
+          <h2>Awards setup</h2>
+          <p class="muted">Add the awards this team gives after games. You can rename, reorder or remove them later.</p>
         </div>
       </div>
+
+      <div class="award-add-row">
+        <input id="newAwardNameInput" type="text" placeholder="e.g. Coaches Award">
+        <button class="btn btn-primary" data-add-award-type>+ Add Award</button>
+      </div>
+
+      <div id="awardTypesEmpty" class="mini-empty">
+        No award types added yet.
+      </div>
+
+      <div id="awardTypesList" class="award-type-list"></div>
+
+      <div id="awardsSavedMessage" class="saved-message hidden">✓ Awards setup saved</div>
+    </div>
+
+    <div class="settings-panel">
+      <div class="settings-panel-header">
+        <div class="settings-icon">🎯</div>
+        <div>
+          <p class="eyebrow">MILESTONES</p>
+          <h2>Career game milestones</h2>
+          <p class="muted">Choose which milestones this team celebrates and how early GameDay Crew should start showing them on the dashboard.</p>
+        </div>
+      </div>
+
+      <div class="milestone-choice-grid">
+        <button class="milestone-choice selected" data-milestone-value="50">
+          <span class="milestone-number">50</span>
+          <span>games</span>
+          <span class="choice-check">✓</span>
+        </button>
+        <button class="milestone-choice selected" data-milestone-value="100">
+          <span class="milestone-number">100</span>
+          <span>games</span>
+          <span class="choice-check">✓</span>
+        </button>
+        <button class="milestone-choice selected" data-milestone-value="150">
+          <span class="milestone-number">150</span>
+          <span>games</span>
+          <span class="choice-check">✓</span>
+        </button>
+      </div>
+
+      <label>Show players when they are within
+        <select id="milestoneWindowInput">
+          <option value="3">3 games</option>
+          <option value="5" selected>5 games</option>
+          <option value="10">10 games</option>
+          <option value="15">15 games</option>
+        </select>
+      </label>
+
+      <div class="feature-hint">
+        <strong>Example</strong>
+        If 100 games is enabled and the watch range is 5, a player appears on Milestone Watch from 95 career games.
+      </div>
+
+      <button class="btn btn-primary full-width" data-save-milestones>Save Milestone Settings</button>
+      <div id="milestonesSavedMessage" class="saved-message hidden">✓ Milestone settings saved</div>
     </div>
   </div>
 </section>
