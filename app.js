@@ -1963,56 +1963,215 @@
     showScreen("managerAwardsScreen");
   };
 
-  const seasonStatsCsv = () => {
-    const team = getCurrentTeam();
-    if (!team) return "";
+  const pdfSafeText = value => String(value ?? "")
+    .replace(/[–—]/g, "-")
+    .replace(/•/g, "-")
+    .replace(/[‘’]/g, "'")
+    .replace(/[“”]/g, '"')
+    .replace(/…/g, "...")
+    .normalize("NFKD")
+    .replace(/[^\x20-\x7E]/g, "");
 
+  const pdfEscape = value => pdfSafeText(value)
+    .replace(/\\/g, "\\\\")
+    .replace(/\(/g, "\\(")
+    .replace(/\)/g, "\\)");
+
+  const buildSimplePdf = reportLines => {
+    const pageWidth = 595;
+    const pageHeight = 842;
+    const marginX = 48;
+    const topY = 792;
+    const bottomY = 54;
+
+    const pages = [];
+    let current = [];
+    let y = topY;
+
+    const heightFor = line => {
+      if (line.gap) return Number(line.gap);
+      return Math.max(13, Number(line.size || 11) + 4);
+    };
+
+    reportLines.forEach(line => {
+      const lineHeight = heightFor(line);
+      if (current.length && y - lineHeight < bottomY) {
+        pages.push(current);
+        current = [];
+        y = topY;
+      }
+      current.push(line);
+      y -= lineHeight;
+    });
+    if (current.length || !pages.length) pages.push(current);
+
+    const objects = [];
+    const addObject = body => {
+      objects.push(body);
+      return objects.length;
+    };
+
+    const catalogId = addObject("");
+    const pagesId = addObject("");
+    const regularFontId = addObject("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
+    const boldFontId = addObject("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>");
+
+    const pageIds = [];
+
+    pages.forEach(pageLines => {
+      let cursorY = topY;
+      const streamParts = [];
+
+      pageLines.forEach(line => {
+        const size = Number(line.size || 11);
+        const font = line.bold ? "F2" : "F1";
+        if (line.text) {
+          streamParts.push(
+            `BT /${font} ${size} Tf ${marginX} ${cursorY} Td (${pdfEscape(line.text)}) Tj ET`
+          );
+        }
+        cursorY -= heightFor(line);
+      });
+
+      const stream = streamParts.join("\n") + "\n";
+      const contentId = addObject(`<< /Length ${stream.length} >>\nstream\n${stream}endstream`);
+      const pageId = addObject(
+        `<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] ` +
+        `/Resources << /Font << /F1 ${regularFontId} 0 R /F2 ${boldFontId} 0 R >> >> ` +
+        `/Contents ${contentId} 0 R >>`
+      );
+      pageIds.push(pageId);
+    });
+
+    objects[catalogId - 1] = `<< /Type /Catalog /Pages ${pagesId} 0 R >>`;
+    objects[pagesId - 1] =
+      `<< /Type /Pages /Kids [${pageIds.map(id => `${id} 0 R`).join(" ")}] /Count ${pageIds.length} >>`;
+
+    let pdf = "%PDF-1.4\n";
+    const offsets = [0];
+
+    objects.forEach((body, index) => {
+      offsets[index + 1] = pdf.length;
+      pdf += `${index + 1} 0 obj\n${body}\nendobj\n`;
+    });
+
+    const xrefOffset = pdf.length;
+    pdf += `xref\n0 ${objects.length + 1}\n`;
+    pdf += "0000000000 65535 f \n";
+    for (let i = 1; i <= objects.length; i += 1) {
+      pdf += `${String(offsets[i]).padStart(10, "0")} 00000 n \n`;
+    }
+    pdf += `trailer\n<< /Size ${objects.length + 1} /Root ${catalogId} 0 R >>\n`;
+    pdf += `startxref\n${xrefOffset}\n%%EOF`;
+
+    return new Blob([pdf], {type: "application/pdf"});
+  };
+
+  const seasonStatsPdfLines = () => {
+    const team = getCurrentTeam();
+    if (!team) return [];
+
+    const games = completedGamesSorted();
     const players = [...playersForTeam(currentTeamId)].sort((a, b) =>
       a.name.localeCompare(b.name)
     );
 
-    const escapeCsv = value => {
-      const text = String(value ?? "");
-      return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
-    };
+    const totals = games.reduce((sum, game) => {
+      sum.goals += Number(game.teamGoals || 0);
+      sum.points += Number(game.teamPoints || 0);
+      sum.score += Number(game.teamScore || 0);
+      return sum;
+    }, {goals: 0, points: 0, score: 0});
 
-    const rows = [
-      ["Team", team.name],
-      ["Season", managerSeasonMeta(team)],
-      [],
-      ["Player", "Jumper", "Career Games", "Season Games", "Goals", "Points", "Score", "Awards"]
+    const lines = [
+      {text: "GameDay Crew", size: 11, bold: true},
+      {text: `${team.name} - Season Stats`, size: 20, bold: true, gap: 27},
+      {text: managerSeasonMeta(team), size: 11, gap: 22},
+      {text: "Season Summary", size: 14, bold: true, gap: 20},
+      {text: `Completed games: ${games.length}`},
+      {text: `Goals: ${totals.goals}`},
+      {text: `Points: ${totals.points}`},
+      {text: `Team score: ${totals.score}`, gap: 22},
+      {text: "Player Totals", size: 14, bold: true, gap: 20}
     ];
 
-    players.forEach(player => {
-      const stats = seasonStatsForPlayer(player.id);
-      rows.push([
-        player.name,
-        player.number || "",
-        Number(player.careerGames || 0),
-        stats.seasonGames,
-        stats.goals,
-        stats.points,
-        stats.score,
-        stats.awards
-      ]);
+    if (!players.length) {
+      lines.push({text: "No players on the current team.", gap: 22});
+    } else {
+      players.forEach(player => {
+        const stats = seasonStatsForPlayer(player.id);
+        lines.push({
+          text:
+            `${player.number ? `#${player.number} ` : ""}${player.name} | ` +
+            `Career ${Number(player.careerGames || 0)} | Season ${stats.seasonGames} | ` +
+            `Goals ${stats.goals} | Points ${stats.points} | Score ${stats.score} | Awards ${stats.awards}`
+        });
+      });
+      lines.push({text: "", gap: 10});
+    }
+
+    lines.push({text: "Completed Games", size: 14, bold: true, gap: 20});
+
+    if (!games.length) {
+      lines.push({text: "No completed games yet."});
+    } else {
+      games.forEach(game => {
+        const awardsGiven = (game.awards || []).filter(award =>
+          award.playerId && award.given !== false
+        );
+
+        lines.push({
+          text:
+            `Round ${game.round || "-"} - ${formatGameDate(game.date)} - ` +
+            `${Number(game.teamGoals || 0)} goals, ${Number(game.teamPoints || 0)} points - ` +
+            `Team score ${Number(game.teamScore || 0)}`,
+          bold: true,
+          gap: 17
+        });
+
+        (game.playerStats || []).forEach(stat => {
+          lines.push({
+            text:
+              `  ${stat.number ? `#${stat.number} ` : ""}${stat.playerName}: ` +
+              `${Number(stat.goals || 0)}G ${Number(stat.points || 0)}P - ${Number(stat.score || 0)} pts`
+          });
+        });
+
+        if (awardsGiven.length) {
+          lines.push({
+            text: `  Awards: ${awardsGiven.map(award => `${award.awardName} - ${award.playerName}`).join("; ")}`
+          });
+        } else {
+          lines.push({text: "  Awards: none given"});
+        }
+
+        lines.push({text: "", gap: 9});
+      });
+    }
+
+    lines.push({text: "", gap: 8});
+    lines.push({
+      text: `Generated by GameDay Crew on ${new Date().toLocaleDateString("en-AU")}`,
+      size: 9
     });
 
-    return rows.map(row => row.map(escapeCsv).join(",")).join("\n");
+    return lines;
   };
 
   document.querySelector("[data-export-season-stats]")?.addEventListener("click", () => {
     const team = getCurrentTeam();
     if (!team) return;
 
-    const blob = new Blob([seasonStatsCsv()], {type: "text/csv;charset=utf-8"});
+    const blob = buildSimplePdf(seasonStatsPdfLines());
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${team.name.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase()}-season-stats.csv`;
+    a.download =
+      `${team.name.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase()}-season-stats.pdf`;
     document.body.appendChild(a);
     a.click();
     a.remove();
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   });
 
   document.querySelector("[data-back-manager-stats-home]")?.addEventListener("click", () => {
