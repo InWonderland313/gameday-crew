@@ -391,11 +391,51 @@
       <button class="btn btn-primary full-width" data-save-player>Add Player</button>
     </div>
 
+    <div id="linkExistingPlayerPanel" class="form-card hidden">
+      <div class="section-heading-row">
+        <div>
+          <p class="eyebrow">CLUB PLAYER</p>
+          <h2 class="section-title">Add an existing player</h2>
+        </div>
+        <button class="text-btn" data-cancel-link-player>Cancel</button>
+      </div>
+
+      <div class="feature-hint">
+        <strong>One player, multiple teams</strong>
+        This links the same club player to this team. Career games stay shared, while goals, awards and Golden Boot remain team-specific.
+      </div>
+
+      <label>Player
+        <select id="existingPlayerSelect"></select>
+      </label>
+
+      <div id="existingPlayerPrimaryHint" class="membership-primary-hint"></div>
+
+      <div class="two-col-form">
+        <label>Jumper number for this team
+          <input id="existingPlayerNumberInput" type="number" min="0" max="99" placeholder="e.g. 12">
+        </label>
+
+        <label>Team membership
+          <select id="existingMembershipRole">
+            <option value="playing_up">Playing Up</option>
+            <option value="additional">Additional Team</option>
+          </select>
+          <small id="existingMembershipRoleHelp" class="field-help"></small>
+        </label>
+      </div>
+
+      <button class="btn btn-primary full-width" data-save-linked-player>Add to This Team</button>
+    </div>
+
     <div id="playersEmpty" class="empty-state">
       <div class="empty-icon">🧒</div>
       <h2>No players added yet</h2>
       <p class="muted">Add the team list, jumper numbers and each player's starting career-game total.</p>
-      <button class="btn btn-primary" data-show-add-player>+ Add First Player</button>
+      <div class="stacked-actions">
+        <button class="btn btn-primary" data-show-add-player>+ Add First Player</button>
+        <button class="btn btn-secondary" data-show-link-player>+ Add Existing Club Player</button>
+      </div>
     </div>
 
     <div id="playersListWrap" class="hidden">
@@ -404,7 +444,10 @@
           <p class="eyebrow">TEAM LIST</p>
           <h1 class="page-title"><span id="playersCountHeading">0</span> <span id="playersCountLabel">players</span></h1>
         </div>
-        <button class="text-btn add-link" data-show-add-player>+ Add Player</button>
+        <div class="inline-actions">
+          <button class="text-btn add-link" data-show-link-player>+ Existing</button>
+          <button class="text-btn add-link" data-show-add-player>+ New Player</button>
+        </div>
       </div>
 
       <div id="playersList" class="players-list"></div>
@@ -801,6 +844,16 @@
     <section class="manager-section">
       <div class="section-heading-row">
         <div>
+          <p class="eyebrow">CLUB TEAMS</p>
+          <h2 class="section-title">Team memberships</h2>
+        </div>
+      </div>
+      <div id="profileTeamMemberships" class="profile-membership-list"></div>
+    </section>
+
+    <section class="manager-section">
+      <div class="section-heading-row">
+        <div>
           <p class="eyebrow">AWARDS</p>
           <h2 class="section-title">Award history</h2>
         </div>
@@ -852,7 +905,14 @@
 
   <div class="content manager-content">
     <section class="setup-flow-card">
-      <div class="flow-step-label"><span>1</span> Captains</div>
+      <div class="flow-step-label"><span>1</span> Playing Today</div>
+      <h2>Who's playing today?</h2>
+      <p class="muted">Regular team members are selected by default. Playing-up players start off unless you choose them for this game.</p>
+      <div id="gameRosterChoices" class="game-roster-list"></div>
+    </section>
+
+    <section class="setup-flow-card">
+      <div class="flow-step-label"><span>2</span> Captains</div>
 
       <div id="juniorCaptainSetup" class="hidden">
         <h2>Who is captaining today?</h2>
@@ -868,7 +928,7 @@
     </section>
 
     <section class="setup-flow-card">
-      <div class="flow-step-label"><span>2</span> Interchange</div>
+      <div class="flow-step-label"><span>3</span> Interchange</div>
       <h2>Will you be tracking interchange today?</h2>
       <p class="muted">This can change quarter by quarter. Even if you choose Yes now, you can hide it during the game whenever you don't need it.</p>
 
@@ -887,7 +947,7 @@
     </section>
 
     <section class="setup-flow-card start-game-card">
-      <div class="flow-step-label"><span>3</span> Ready</div>
+      <div class="flow-step-label"><span>4</span> Ready</div>
       <div id="gameSetupReadyText" class="ready-summary">Choose your game-day options above.</div>
       <button class="btn btn-primary full-width start-game-button" data-start-live-game disabled>Start Game</button>
     </section>
@@ -1494,15 +1554,26 @@
         <input id="editPlayerNameInput" type="text">
       </label>
       <div class="two-col-form">
-        <label>Jumper number
+        <label>Jumper number for this team
           <input id="editPlayerNumberInput" type="number" min="0" max="99">
         </label>
-        <label>Starting career games
+        <label>Career games (shared across club teams)
           <input id="editPlayerCareerInput" type="number" min="0">
         </label>
       </div>
+
+      <label>Membership for this team
+        <select id="editPlayerMembershipRole">
+          <option value="primary">Primary Team</option>
+          <option value="playing_up">Playing Up</option>
+          <option value="additional">Additional Team</option>
+        </select>
+        <small id="editPlayerMembershipRoleHelp" class="field-help"></small>
+      </label>
+
+      <div id="editPlayerMembershipSummary" class="player-membership-summary"></div>
       <button class="btn btn-primary full-width" data-save-player-edit>Save Changes</button>
-      <button class="btn danger-outline full-width" data-delete-player>Remove Player</button>
+      <button class="btn danger-outline full-width" data-delete-player>Remove From This Team</button>
     </div>
   </div>
 </section>

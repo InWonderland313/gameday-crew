@@ -1039,3 +1039,267 @@ input:focus,select:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(244,
 @media(max-width:620px){
   .review-participation-control{grid-column:1 / -1}
 }
+
+
+/* V2.15 Multi-Team Players / Playing Up */
+.stacked-actions{
+  display:grid;
+  gap:9px;
+  justify-items:stretch;
+  width:min(100%,360px);
+  margin:14px auto 0
+}
+.inline-actions{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  flex-wrap:wrap;
+  justify-content:flex-end
+}
+.membership-primary-hint{
+  margin:10px 0 14px;
+  padding:11px 12px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:#F8F9FB;
+  color:var(--muted);
+  font-size:12px;
+  line-height:1.45
+}
+.membership-primary-hint strong{color:var(--navy)}
+.player-membership-tag{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  margin-top:6px;
+  padding:5px 8px;
+  border-radius:999px;
+  border:1px solid var(--line);
+  background:#F8F9FB;
+  color:var(--navy);
+  font-size:10px;
+  font-weight:800
+}
+.player-membership-tag.primary{
+  background:#E8F6EE;
+  border-color:#CFE7DA;
+  color:var(--success)
+}
+.player-membership-tag.playing-up{
+  background:var(--gold-soft);
+  border-color:#F1D179
+}
+.player-membership-summary{
+  display:grid;
+  gap:8px;
+  margin:14px 0;
+  padding:13px;
+  border-radius:14px;
+  border:1px solid var(--line);
+  background:#F8F9FB
+}
+.player-membership-summary h3{
+  margin:0;
+  color:var(--navy);
+  font-size:13px
+}
+.player-membership-summary p{
+  margin:0;
+  color:var(--muted);
+  font-size:11px;
+  line-height:1.45
+}
+.membership-list{
+  display:grid;
+  gap:7px
+}
+.membership-row{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  align-items:center;
+  padding:8px 9px;
+  border-radius:10px;
+  background:#fff;
+  border:1px solid var(--line)
+}
+.membership-row strong{
+  color:var(--navy);
+  font-size:11px
+}
+.membership-row span{
+  color:var(--muted);
+  font-size:10px;
+  text-align:right
+}
+.profile-membership-list{
+  display:grid;
+  gap:9px
+}
+.profile-membership-card{
+  display:grid;
+  grid-template-columns:46px 1fr auto;
+  gap:11px;
+  align-items:center;
+  padding:11px 12px;
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:14px
+}
+.profile-membership-badge{
+  width:44px;
+  height:44px;
+  display:grid;
+  place-items:center;
+  border-radius:12px;
+  background:var(--navy);
+  color:var(--gold);
+  font-weight:900;
+  font-size:11px
+}
+.profile-membership-card strong{
+  display:block;
+  color:var(--navy)
+}
+.profile-membership-card small{
+  display:block;
+  color:var(--muted);
+  margin-top:3px
+}
+.profile-membership-role{
+  padding:6px 8px;
+  border-radius:999px;
+  border:1px solid var(--line);
+  background:#F8F9FB;
+  font-size:10px;
+  font-weight:900;
+  color:var(--navy);
+  white-space:nowrap
+}
+.profile-membership-role.playing-up{
+  background:var(--gold-soft);
+  border-color:#F1D179
+}
+.profile-membership-role.primary{
+  background:#E8F6EE;
+  border-color:#CFE7DA;
+  color:var(--success)
+}
+
+@media(max-width:620px){
+  .profile-membership-card{
+    grid-template-columns:44px 1fr
+  }
+  .profile-membership-role{
+    grid-column:2;
+    justify-self:start
+  }
+}
+
+
+/* V2.15 Game Day participation selector */
+.game-roster-list{
+  display:grid;
+  gap:9px;
+  margin-top:14px
+}
+.game-roster-choice{
+  display:grid;
+  grid-template-columns:46px 1fr auto;
+  gap:11px;
+  align-items:center;
+  width:100%;
+  text-align:left;
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:14px;
+  padding:11px
+}
+.game-roster-choice.selected{
+  background:#EFFAF4;
+  border-color:#B9DDC9
+}
+.game-roster-choice.playing-up:not(.selected){
+  background:#FFFDF7;
+  border-color:#F1D179
+}
+.game-roster-choice .roster-player-number{
+  width:44px;
+  height:44px;
+  border-radius:11px;
+  background:var(--navy);
+  color:var(--gold);
+  display:grid;
+  place-items:center;
+  font-weight:900
+}
+.game-roster-choice strong{
+  display:block;
+  color:var(--navy)
+}
+.game-roster-choice small{
+  display:block;
+  color:var(--muted);
+  margin-top:3px;
+  line-height:1.35
+}
+.game-roster-state{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:82px;
+  padding:6px 9px;
+  border-radius:999px;
+  border:1px solid var(--line);
+  background:#F7F8FA;
+  color:var(--muted);
+  font-size:10px;
+  font-weight:900
+}
+.game-roster-choice.selected .game-roster-state{
+  background:#E8F6EE;
+  border-color:#CFE7DA;
+  color:var(--success)
+}
+.game-roster-choice.playing-up:not(.selected) .game-roster-state{
+  background:var(--gold-soft);
+  border-color:#F1D179;
+  color:var(--navy)
+}
+.game-roster-summary{
+  margin-top:10px;
+  color:var(--muted);
+  font-size:11px;
+  font-weight:700
+}
+
+
+/* V2.15.1 Membership role guidance */
+.field-help{
+  display:block;
+  margin-top:6px;
+  color:var(--muted);
+  font-size:10px;
+  line-height:1.45
+}
+.field-help strong{
+  color:var(--navy)
+}
+.membership-role-callout{
+  margin-top:8px;
+  padding:10px 11px;
+  border-radius:11px;
+  border:1px solid var(--line);
+  background:#F8F9FB;
+  color:var(--muted);
+  font-size:10px;
+  line-height:1.5
+}
+.membership-role-callout.playing-up{
+  background:var(--gold-soft);
+  border-color:#F1D179
+}
+.membership-role-callout.primary{
+  background:#EFFAF4;
+  border-color:#B9DDC9
+}

@@ -244,6 +244,7 @@
 
 
   const PLAYERS_KEY = "gdc_v2_demo_players";
+  const MEMBERSHIPS_KEY = "gdc_v2_demo_team_memberships";
   let currentTeamId = null;
   let editingPlayerId = null;
 
@@ -252,11 +253,165 @@
     catch { return []; }
   };
 
-  const saveAllPlayers = players => localStorage.setItem(PLAYERS_KEY, JSON.stringify(players));
+  const saveAllPlayers = players =>
+    localStorage.setItem(PLAYERS_KEY, JSON.stringify(players));
 
-  const playersForTeam = teamId => getAllPlayers().filter(p => p.teamId === teamId);
+  const saveMemberships = memberships =>
+    localStorage.setItem(MEMBERSHIPS_KEY, JSON.stringify(memberships));
 
-  const getCurrentTeam = () => getTeams().find(t => t.id === currentTeamId) || null;
+  const rawMemberships = () => {
+    try { return JSON.parse(localStorage.getItem(MEMBERSHIPS_KEY) || "[]"); }
+    catch { return []; }
+  };
+
+  const ensureMembershipMigration = () => {
+    const players = getAllPlayers();
+    const memberships = rawMemberships();
+    let changedMemberships = false;
+    let changedPlayers = false;
+
+    players.forEach(player => {
+      const existing = memberships.filter(item => item.playerId === player.id);
+
+      if (!existing.length && player.teamId) {
+        memberships.push({
+          id: "membership_" + player.id + "_" + player.teamId,
+          playerId: player.id,
+          teamId: player.teamId,
+          role: "primary",
+          number: player.number || "",
+          status: "active",
+          createdAt: player.createdAt || new Date().toISOString()
+        });
+        changedMemberships = true;
+      }
+
+      if (!player.primaryTeamId && player.teamId) {
+        player.primaryTeamId = player.teamId;
+        changedPlayers = true;
+      }
+    });
+
+    if (changedMemberships) saveMemberships(memberships);
+    if (changedPlayers) saveAllPlayers(players);
+
+    return memberships;
+  };
+
+  const getMemberships = () => ensureMembershipMigration();
+
+  const membershipsForPlayer = playerId =>
+    getMemberships().filter(item =>
+      item.playerId === playerId && item.status !== "inactive"
+    );
+
+  const membershipForPlayerTeam = (playerId, teamId) =>
+    getMemberships().find(item =>
+      item.playerId === playerId &&
+      item.teamId === teamId &&
+      item.status !== "inactive"
+    ) || null;
+
+  const primaryMembershipForPlayer = playerId => {
+    const player = getAllPlayers().find(item => item.id === playerId);
+    const memberships = membershipsForPlayer(playerId);
+
+    return memberships.find(item =>
+      item.role === "primary" ||
+      item.teamId === player?.primaryTeamId
+    ) || memberships[0] || null;
+  };
+
+  const playersForTeam = teamId => {
+    const players = new Map(
+      getAllPlayers().map(player => [player.id, player])
+    );
+
+    return getMemberships()
+      .filter(membership =>
+        membership.teamId === teamId &&
+        membership.status !== "inactive"
+      )
+      .map(membership => {
+        const player = players.get(membership.playerId);
+        if (!player) return null;
+
+        return {
+          ...player,
+          teamId,
+          number: membership.number ?? player.number ?? "",
+          membershipId: membership.id,
+          membershipRole: membership.role || "additional",
+          primaryTeamId: player.primaryTeamId || player.teamId || null
+        };
+      })
+      .filter(Boolean);
+  };
+
+  const teamForId = teamId =>
+    getTeams().find(team => team.id === teamId) || null;
+
+  const ageNumber = ageGroup => {
+    const match = String(ageGroup || "").match(/\d+/);
+    return match ? Number(match[0]) : 0;
+  };
+
+  const membershipRoleLabel = role => {
+    if (role === "primary") return "Primary team";
+    if (role === "playing_up") return "Playing Up";
+    return "Additional team";
+  };
+
+  const membershipContextText = (playerId, teamId) => {
+    const membership = membershipForPlayerTeam(playerId, teamId);
+    if (!membership) return "";
+
+    if (membership.role === "primary") {
+      return "Primary team";
+    }
+
+    const primary = primaryMembershipForPlayer(playerId);
+    const primaryTeam = primary ? teamForId(primary.teamId) : null;
+
+    if (membership.role === "playing_up") {
+      return primaryTeam
+        ? `Playing up from ${primaryTeam.name}`
+        : "Playing Up";
+    }
+
+    return primaryTeam
+      ? `Additional team • Primary: ${primaryTeam.name}`
+      : "Additional team";
+  };
+
+  const membershipClass = role =>
+    role === "primary"
+      ? "primary"
+      : role === "playing_up"
+        ? "playing-up"
+        : "additional";
+
+  const membershipRoleHelpText = role => {
+    if (role === "primary") {
+      return "This is the player's main/home team. They are selected by default on game day.";
+    }
+    if (role === "playing_up") {
+      return "Occasional fill-in for this team, usually from a younger age group. They start AVAILABLE, not PLAYING, on game day.";
+    }
+    return "A regular member of this team as well as another team. They are selected by default on game day.";
+  };
+
+  const updateMembershipRoleHelp = (selectId, helpId) => {
+    const select = document.getElementById(selectId);
+    const help = document.getElementById(helpId);
+    if (!select || !help) return;
+    help.textContent = membershipRoleHelpText(select.value);
+  };
+
+  const getCurrentTeam = () =>
+    getTeams().find(team => team.id === currentTeamId) || null;
+
+  ensureMembershipMigration();
 
   const openTeamAdmin = teamId => {
     currentTeamId = teamId;
@@ -322,7 +477,8 @@
       <div class="player-number">${p.number || "—"}</div>
       <div>
         <strong>${p.name}</strong>
-        <small>${Number(p.careerGames || 0)} starting career game${Number(p.careerGames || 0) === 1 ? "" : "s"}</small>
+        <small>${Number(p.careerGames || 0)} career game${Number(p.careerGames || 0) === 1 ? "" : "s"}</small>
+        <span class="player-membership-tag ${membershipClass(p.membershipRole)}">${membershipContextText(p.id, currentTeamId)}</span>
       </div>
       <div class="player-arrow">›</div>
     </button>`;
@@ -353,12 +509,134 @@
     document.getElementById("addPlayerPanel")?.classList.add("hidden");
   };
 
+  const hideLinkPlayer = () => {
+    document.getElementById("linkExistingPlayerPanel")?.classList.add("hidden");
+  };
+
   const showAddPlayer = () => {
+    hideLinkPlayer();
     document.getElementById("playerNameInput").value = "";
     document.getElementById("playerNumberInput").value = "";
     document.getElementById("playerCareerInput").value = "0";
     document.getElementById("addPlayerPanel")?.classList.remove("hidden");
     document.getElementById("playerNameInput")?.focus();
+  };
+
+  const availableClubPlayersForCurrentTeam = () => {
+    if (!currentTeamId) return [];
+    const currentIds = new Set(
+      playersForTeam(currentTeamId).map(player => player.id)
+    );
+
+    return getAllPlayers()
+      .filter(player =>
+        player.status !== "inactive" &&
+        !currentIds.has(player.id)
+      )
+      .sort((a, b) => a.name.localeCompare(b.name));
+  };
+
+  const suggestedMembershipRole = playerId => {
+    const currentTeam = getCurrentTeam();
+    const primary = primaryMembershipForPlayer(playerId);
+    const primaryTeam = primary ? teamForId(primary.teamId) : null;
+
+    if (
+      currentTeam &&
+      primaryTeam &&
+      ageNumber(currentTeam.ageGroup) > ageNumber(primaryTeam.ageGroup)
+    ) {
+      return "playing_up";
+    }
+
+    return "additional";
+  };
+
+  const updateExistingPlayerLinkPreview = () => {
+    const select = document.getElementById("existingPlayerSelect");
+    const playerId = select?.value;
+    const player = getAllPlayers().find(item => item.id === playerId);
+    const hint = document.getElementById("existingPlayerPrimaryHint");
+    const numberInput = document.getElementById("existingPlayerNumberInput");
+    const roleInput = document.getElementById("existingMembershipRole");
+
+    if (!player) {
+      if (hint) hint.innerHTML = "";
+      if (numberInput) numberInput.value = "";
+      return;
+    }
+
+    const primary = primaryMembershipForPlayer(player.id);
+    const primaryTeam = primary ? teamForId(primary.teamId) : null;
+
+    if (hint) {
+      hint.innerHTML = primaryTeam
+        ? `<strong>Primary team:</strong> ${primaryTeam.name} • ${teamMeta(primaryTeam)}<br>${Number(player.careerGames || 0)} career games`
+        : `<strong>Club player:</strong> No primary team currently set.<br>${Number(player.careerGames || 0)} career games`;
+    }
+
+    if (numberInput) {
+      numberInput.value =
+        primary?.number ??
+        player.number ??
+        "";
+    }
+
+    if (roleInput) {
+      roleInput.value = suggestedMembershipRole(player.id);
+    }
+
+    updateMembershipRoleHelp(
+      "existingMembershipRole",
+      "existingMembershipRoleHelp"
+    );
+  };
+
+  const showLinkPlayer = () => {
+    hideAddPlayer();
+
+    const select = document.getElementById("existingPlayerSelect");
+    const available = availableClubPlayersForCurrentTeam();
+
+    if (!available.length) {
+      alert("Every active club player is already linked to this team.");
+      return;
+    }
+
+    select.innerHTML = available.map(player => {
+      const primary = primaryMembershipForPlayer(player.id);
+      const primaryTeam = primary ? teamForId(primary.teamId) : null;
+      const suffix = primaryTeam ? ` — ${primaryTeam.name}` : "";
+      return `<option value="${player.id}">${player.name}${suffix}</option>`;
+    }).join("");
+
+    document.getElementById("linkExistingPlayerPanel")?.classList.remove("hidden");
+    updateExistingPlayerLinkPreview();
+  };
+
+  const renderEditPlayerMembershipSummary = playerId => {
+    const wrap = document.getElementById("editPlayerMembershipSummary");
+    if (!wrap) return;
+
+    const memberships = membershipsForPlayer(playerId);
+    const rows = memberships.map(membership => {
+      const team = teamForId(membership.teamId);
+      if (!team) return "";
+
+      const current = membership.teamId === currentTeamId;
+      return `
+        <div class="membership-row">
+          <strong>${team.name}${current ? " • This team" : ""}</strong>
+          <span>${membershipRoleLabel(membership.role)}${membership.number ? ` • #${membership.number}` : ""}</span>
+        </div>
+      `;
+    }).join("");
+
+    wrap.innerHTML = `
+      <h3>Club team memberships</h3>
+      <p>This is one club player record. Career games are shared across every team they play for.</p>
+      <div class="membership-list">${rows || "<p>No active team memberships.</p>"}</div>
+    `;
   };
 
   document.addEventListener("click", event => {
@@ -370,12 +648,36 @@
 
     const playerCard = event.target.closest("[data-player-id]");
     if (playerCard) {
-      const p = getAllPlayers().find(x => x.id === playerCard.dataset.playerId);
-      if (!p) return;
-      editingPlayerId = p.id;
-      document.getElementById("editPlayerNameInput").value = p.name;
-      document.getElementById("editPlayerNumberInput").value = p.number || "";
-      document.getElementById("editPlayerCareerInput").value = Number(p.careerGames || 0);
+      const teamPlayer = playersForTeam(currentTeamId).find(
+        item => item.id === playerCard.dataset.playerId
+      );
+      const player = getAllPlayers().find(
+        item => item.id === playerCard.dataset.playerId
+      );
+
+      if (!teamPlayer || !player) return;
+
+      editingPlayerId = player.id;
+      document.getElementById("editPlayerNameInput").value = player.name;
+      document.getElementById("editPlayerNumberInput").value =
+        teamPlayer.number || "";
+      document.getElementById("editPlayerCareerInput").value =
+        Number(player.careerGames || 0);
+
+      const currentMembership = membershipForPlayerTeam(
+        player.id,
+        currentTeamId
+      );
+      if (currentMembership) {
+        document.getElementById("editPlayerMembershipRole").value =
+          currentMembership.role || "additional";
+      }
+      updateMembershipRoleHelp(
+        "editPlayerMembershipRole",
+        "editPlayerMembershipRoleHelp"
+      );
+
+      renderEditPlayerMembershipSummary(player.id);
       showScreen("editPlayerScreen");
     }
   });
@@ -392,39 +694,189 @@
 
   document.querySelector("[data-back-team-admin]")?.addEventListener("click", () => {
     hideAddPlayer();
+    hideLinkPlayer();
     renderTeamAdmin();
     showScreen("teamAdminScreen");
   });
 
-  document.querySelectorAll("[data-show-add-player]").forEach(btn => btn.addEventListener("click", showAddPlayer));
-  document.querySelector("[data-cancel-add-player]")?.addEventListener("click", hideAddPlayer);
+  document.querySelectorAll("[data-show-add-player]").forEach(button =>
+    button.addEventListener("click", showAddPlayer)
+  );
+
+  document.querySelectorAll("[data-show-link-player]").forEach(button =>
+    button.addEventListener("click", showLinkPlayer)
+  );
+
+  document.querySelector("[data-cancel-add-player]")?.addEventListener(
+    "click",
+    hideAddPlayer
+  );
+
+  document.querySelector("[data-cancel-link-player]")?.addEventListener(
+    "click",
+    hideLinkPlayer
+  );
+
+  document.getElementById("existingPlayerSelect")?.addEventListener(
+    "change",
+    updateExistingPlayerLinkPreview
+  );
+
+  document.getElementById("existingMembershipRole")?.addEventListener(
+    "change",
+    () => updateMembershipRoleHelp(
+      "existingMembershipRole",
+      "existingMembershipRoleHelp"
+    )
+  );
+
+  document.getElementById("editPlayerMembershipRole")?.addEventListener(
+    "change",
+    () => updateMembershipRoleHelp(
+      "editPlayerMembershipRole",
+      "editPlayerMembershipRoleHelp"
+    )
+  );
 
   document.querySelector("[data-save-player]")?.addEventListener("click", () => {
-    const name = document.getElementById("playerNameInput")?.value.trim();
-    const number = document.getElementById("playerNumberInput")?.value.trim() || "";
-    const careerGames = Math.max(0, Number(document.getElementById("playerCareerInput")?.value || 0));
+    const name =
+      document.getElementById("playerNameInput")?.value.trim();
+    const number =
+      document.getElementById("playerNumberInput")?.value.trim() || "";
+    const careerGames = Math.max(
+      0,
+      Number(
+        document.getElementById("playerCareerInput")?.value || 0
+      )
+    );
 
     if (!name) return alert("Enter the player's name.");
     if (!currentTeamId) return alert("No team selected.");
 
-    const all = getAllPlayers();
-    if (number && all.some(p => p.teamId === currentTeamId && String(p.number) === String(number))) {
-      if (!confirm(`Jumper #${number} is already being used in this team. Add this player anyway?`)) return;
+    const sameNamePlayer = getAllPlayers().find(player =>
+      player.status !== "inactive" &&
+      player.name.trim().toLowerCase() === name.toLowerCase()
+    );
+
+    if (
+      sameNamePlayer &&
+      !confirm(
+        `A club player named ${sameNamePlayer.name} already exists. If this is the same kid, choose Cancel and use "Add Existing Club Player" instead.
+
+Create a separate player record anyway?`
+      )
+    ) return;
+
+    ensureMembershipMigration();
+
+    if (
+      number &&
+      playersForTeam(currentTeamId).some(player =>
+        String(player.number) === String(number)
+      )
+    ) {
+      if (!confirm(
+        `Jumper #${number} is already being used in this team. Add this player anyway?`
+      )) return;
     }
 
+    const id = "player_" + Date.now();
+    const now = new Date().toISOString();
+    const all = getAllPlayers();
+    const memberships = getMemberships();
+
     all.push({
-      id: "player_" + Date.now(),
+      id,
       teamId: currentTeamId,
+      primaryTeamId: currentTeamId,
       name,
       number,
       careerGames,
       status: "active",
-      createdAt: new Date().toISOString()
+      createdAt: now
     });
+
+    memberships.push({
+      id: "membership_" + Date.now() + "_" + id,
+      playerId: id,
+      teamId: currentTeamId,
+      role: "primary",
+      number,
+      status: "active",
+      createdAt: now
+    });
+
     saveAllPlayers(all);
+    saveMemberships(memberships);
+
     hideAddPlayer();
     renderPlayerList();
+    renderTeamAdmin();
   });
+
+  document.querySelector("[data-save-linked-player]")?.addEventListener(
+    "click",
+    () => {
+      const playerId =
+        document.getElementById("existingPlayerSelect")?.value;
+      const number =
+        document.getElementById("existingPlayerNumberInput")?.value.trim() || "";
+      let role =
+        document.getElementById("existingMembershipRole")?.value || "additional";
+
+      if (!playerId) return alert("Choose a club player.");
+      if (!currentTeamId) return alert("No team selected.");
+
+      const player = getAllPlayers().find(item => item.id === playerId);
+      if (!player) return alert("That club player could not be found.");
+
+      if (membershipForPlayerTeam(playerId, currentTeamId)) {
+        return alert(`${player.name} is already linked to this team.`);
+      }
+
+      if (
+        number &&
+        playersForTeam(currentTeamId).some(item =>
+          String(item.number) === String(number)
+        )
+      ) {
+        if (!confirm(
+          `Jumper #${number} is already being used in this team. Add ${player.name} anyway?`
+        )) return;
+      }
+
+      const primary = primaryMembershipForPlayer(playerId);
+      if (!primary) role = "primary";
+
+      const memberships = getMemberships();
+      memberships.push({
+        id: "membership_" + Date.now() + "_" + playerId,
+        playerId,
+        teamId: currentTeamId,
+        role,
+        number,
+        status: "active",
+        createdAt: new Date().toISOString()
+      });
+      saveMemberships(memberships);
+
+      if (!primary) {
+        const all = getAllPlayers();
+        const clubPlayer = all.find(item => item.id === playerId);
+        if (clubPlayer) {
+          clubPlayer.primaryTeamId = currentTeamId;
+          clubPlayer.teamId = currentTeamId;
+          clubPlayer.number = number;
+          clubPlayer.status = "active";
+          saveAllPlayers(all);
+        }
+      }
+
+      hideLinkPlayer();
+      renderPlayerList();
+      renderTeamAdmin();
+    }
+  );
 
   document.querySelector("[data-back-player-list]")?.addEventListener("click", () => {
     editingPlayerId = null;
@@ -434,18 +886,105 @@
 
   document.querySelector("[data-save-player-edit]")?.addEventListener("click", () => {
     const all = getAllPlayers();
-    const p = all.find(x => x.id === editingPlayerId);
-    if (!p) return;
+    const player = all.find(item => item.id === editingPlayerId);
+    const membership = membershipForPlayerTeam(
+      editingPlayerId,
+      currentTeamId
+    );
+    if (!player || !membership) return;
 
-    const name = document.getElementById("editPlayerNameInput")?.value.trim();
-    const number = document.getElementById("editPlayerNumberInput")?.value.trim() || "";
-    const careerGames = Math.max(0, Number(document.getElementById("editPlayerCareerInput")?.value || 0));
+    const name =
+      document.getElementById("editPlayerNameInput")?.value.trim();
+    const number =
+      document.getElementById("editPlayerNumberInput")?.value.trim() || "";
+    const careerGames = Math.max(
+      0,
+      Number(
+        document.getElementById("editPlayerCareerInput")?.value || 0
+      )
+    );
+    const newRole =
+      document.getElementById("editPlayerMembershipRole")?.value ||
+      membership.role ||
+      "additional";
+
     if (!name) return alert("Enter the player's name.");
 
-    p.name = name;
-    p.number = number;
-    p.careerGames = careerGames;
+    if (
+      number &&
+      playersForTeam(currentTeamId).some(item =>
+        item.id !== editingPlayerId &&
+        String(item.number) === String(number)
+      )
+    ) {
+      if (!confirm(
+        `Jumper #${number} is already being used in this team. Save anyway?`
+      )) return;
+    }
+
+    player.name = name;
+    player.careerGames = careerGames;
+
+    const memberships = getMemberships();
+    const savedMembership = memberships.find(item =>
+      item.id === membership.id
+    );
+    if (!savedMembership) return;
+
+    const oldRole = savedMembership.role || "additional";
+    const playerMemberships = memberships.filter(item =>
+      item.playerId === player.id &&
+      item.status !== "inactive"
+    );
+
+    if (
+      oldRole === "primary" &&
+      newRole !== "primary" &&
+      playerMemberships.length === 1
+    ) {
+      alert(
+        "This is the player's only team, so it must remain their Primary Team."
+      );
+      return;
+    }
+
+    if (
+      oldRole === "primary" &&
+      newRole !== "primary"
+    ) {
+      const replacementPrimary = playerMemberships.find(item =>
+        item.id !== savedMembership.id
+      );
+
+      if (!replacementPrimary) {
+        alert("Choose another Primary Team before changing this membership.");
+        return;
+      }
+
+      replacementPrimary.role = "primary";
+      player.primaryTeamId = replacementPrimary.teamId;
+      player.teamId = replacementPrimary.teamId;
+      player.number = replacementPrimary.number || player.number || "";
+    }
+
+    if (newRole === "primary") {
+      playerMemberships.forEach(item => {
+        if (item.id !== savedMembership.id && item.role === "primary") {
+          item.role = "additional";
+        }
+      });
+
+      player.primaryTeamId = currentTeamId;
+      player.teamId = currentTeamId;
+      player.number = number;
+    }
+
+    savedMembership.number = number;
+    savedMembership.role = newRole;
+
     saveAllPlayers(all);
+    saveMemberships(memberships);
+
     editingPlayerId = null;
     renderPlayerList();
     showScreen("teamPlayersScreen");
@@ -453,13 +992,73 @@
 
   document.querySelector("[data-delete-player]")?.addEventListener("click", () => {
     const all = getAllPlayers();
-    const p = all.find(x => x.id === editingPlayerId);
-    if (!p) return;
-    if (!confirm(`Remove ${p.name} from this team?`)) return;
+    const player = all.find(item => item.id === editingPlayerId);
+    const membership = membershipForPlayerTeam(
+      editingPlayerId,
+      currentTeamId
+    );
+    if (!player || !membership) return;
 
-    saveAllPlayers(all.filter(x => x.id !== editingPlayerId));
+    const team = getCurrentTeam();
+    const context = membershipContextText(player.id, currentTeamId);
+    if (!confirm(
+      `Remove ${player.name} from ${team?.name || "this team"}?\n\n${context}. Their career games and completed-game history will not be deleted.`
+    )) return;
+
+    const memberships = getMemberships().filter(
+      item => item.id !== membership.id
+    );
+
+    const remaining = memberships.filter(item =>
+      item.playerId === player.id &&
+      item.status !== "inactive"
+    );
+
+    if (membership.role === "primary") {
+      const nextPrimary = remaining[0] || null;
+
+      remaining.forEach(item => {
+        item.role = item.id === nextPrimary?.id
+          ? "primary"
+          : item.role === "primary"
+            ? "additional"
+            : item.role;
+      });
+
+      if (nextPrimary) {
+        player.primaryTeamId = nextPrimary.teamId;
+        player.teamId = nextPrimary.teamId;
+        player.number = nextPrimary.number || player.number || "";
+      } else {
+        player.primaryTeamId = null;
+        player.teamId = null;
+      }
+    }
+
+    saveMemberships(memberships);
+    saveAllPlayers(all);
+
+    if (
+      typeof getTeamSettings === "function" &&
+      typeof saveTeamSettings === "function"
+    ) {
+      const settings = getTeamSettings();
+      const teamSettings = settings[currentTeamId];
+
+      if (teamSettings) {
+        teamSettings.captains = (teamSettings.captains || []).filter(
+          id => id !== player.id
+        );
+        teamSettings.viceCaptains = (
+          teamSettings.viceCaptains || []
+        ).filter(id => id !== player.id);
+        saveTeamSettings(settings);
+      }
+    }
+
     editingPlayerId = null;
     renderPlayerList();
+    renderTeamAdmin();
     showScreen("teamPlayersScreen");
   });
 
@@ -1434,8 +2033,8 @@
     return null;
   };
 
-  const seasonStatsForPlayer = playerId => {
-    const games = gamesForTeam(currentTeamId);
+  const seasonStatsForPlayerInTeam = (playerId, teamId) => {
+    const games = gamesForTeam(teamId);
     let seasonGames = 0;
     let goals = 0;
     let points = 0;
@@ -1462,6 +2061,9 @@
       awards
     };
   };
+
+  const seasonStatsForPlayer = playerId =>
+    seasonStatsForPlayerInTeam(playerId, currentTeamId);
 
 
   const currentGoldenBoot = () => {
@@ -1595,6 +2197,7 @@
           <div>
             <strong>${player.name}</strong>
             <small>${Number(player.careerGames || 0)} career games • ${leadership}</small>
+            <span class="player-membership-tag ${membershipClass(player.membershipRole)}">${membershipContextText(player.id, currentTeamId)}</span>
             <div class="manager-player-mini-stats">
               <span class="manager-player-mini-stat">🏉 ${stats.seasonGames} games</span>
               <span class="manager-player-mini-stat">🥅 ${stats.goals} G</span>
@@ -1641,8 +2244,8 @@
   };
 
   const renderManagerPlayerProfile = playerId => {
-    const player = getAllPlayers().find(item =>
-      item.id === playerId && item.teamId === currentTeamId
+    const player = playersForTeam(currentTeamId).find(item =>
+      item.id === playerId
     );
     if (!player) return;
 
@@ -1655,7 +2258,34 @@
     document.getElementById("profilePlayerNumber").textContent = player.number || "—";
     document.getElementById("profilePlayerName").textContent = player.name;
     document.getElementById("profilePlayerLeadership").textContent =
-      leadershipLabelForPlayer(player.id);
+      `${leadershipLabelForPlayer(player.id)} • ${membershipContextText(player.id, currentTeamId)}`;
+
+    const membershipWrap = document.getElementById("profileTeamMemberships");
+    if (membershipWrap) {
+      membershipWrap.innerHTML = membershipsForPlayer(player.id)
+        .map(membership => {
+          const team = teamForId(membership.teamId);
+          if (!team) return "";
+
+          const membershipStats = seasonStatsForPlayerInTeam(
+            player.id,
+            membership.teamId
+          );
+
+          return `
+            <div class="profile-membership-card">
+              <div class="profile-membership-badge">${team.ageGroup || "TEAM"}</div>
+              <div>
+                <strong>${team.name}</strong>
+                <small>${teamMeta(team)}${membership.number ? ` • #${membership.number}` : ""}</small>
+                <small>${membershipStats.seasonGames} game${membershipStats.seasonGames === 1 ? "" : "s"} • ${membershipStats.goals} goal${membershipStats.goals === 1 ? "" : "s"} • ${membershipStats.points} point${membershipStats.points === 1 ? "" : "s"}</small>
+              </div>
+              <span class="profile-membership-role ${membershipClass(membership.role)}">${membershipRoleLabel(membership.role)}</span>
+            </div>
+          `;
+        })
+        .join("");
+    }
 
     document.getElementById("profileCareerGames").textContent =
       String(Number(player.careerGames || 0));
@@ -1787,14 +2417,16 @@
       });
     });
 
-    playersForTeam(currentTeamId).forEach(player => {
-      if (byId.has(player.id)) return;
-      byId.set(player.id, {
-        playerId: player.id,
-        playerName: player.name,
-        number: player.number || null
+    if (!(game.rosterSnapshot || []).length) {
+      playersForTeam(currentTeamId).forEach(player => {
+        if (byId.has(player.id)) return;
+        byId.set(player.id, {
+          playerId: player.id,
+          playerName: player.name,
+          number: player.number || null
+        });
       });
-    });
+    }
 
     return [...byId.values()].sort((a, b) =>
       Number(a.number || 999) - Number(b.number || 999) ||
@@ -2349,8 +2981,6 @@
       const addedSet = new Set(delta.added);
 
       const adjustedPlayers = getAllPlayers().map(player => {
-        if (player.teamId !== currentTeamId) return player;
-
         if (removedSet.has(player.id)) {
           return {
             ...player,
@@ -3036,6 +3666,7 @@
   });
 
   const LIVE_GAME_KEY = "gdc_v2_demo_live_games";
+  let selectedGamePlayerIds = [];
   let selectedGameCaptains = [];
   let setupTrackInterchange = null;
   let currentLiveQuarter = 1;
@@ -3066,11 +3697,45 @@
       .length;
   };
 
+  const renderGameRosterChoices = () => {
+    const list = document.getElementById("gameRosterChoices");
+    if (!list) return;
+
+    const players = [...playersForTeam(currentTeamId)].sort((a, b) =>
+      Number(a.number || 999) - Number(b.number || 999) ||
+      a.name.localeCompare(b.name)
+    );
+
+    list.innerHTML = players.map(player => {
+      const selected = selectedGamePlayerIds.includes(player.id);
+      const playingUp = player.membershipRole === "playing_up";
+      const context = membershipContextText(player.id, currentTeamId);
+
+      return `
+        <button class="game-roster-choice ${selected ? "selected" : ""} ${playingUp ? "playing-up" : ""}"
+          data-game-roster-player="${player.id}">
+          <div class="roster-player-number">${player.number || "—"}</div>
+          <div>
+            <strong>${player.name}</strong>
+            <small>${context}${playingUp ? " • Select only when playing up today" : ""}</small>
+          </div>
+          <span class="game-roster-state">${selected ? "PLAYING" : (playingUp ? "AVAILABLE" : "NOT PLAYING")}</span>
+        </button>
+      `;
+    }).join("");
+
+    list.insertAdjacentHTML(
+      "beforeend",
+      `<p class="game-roster-summary">${selectedGamePlayerIds.length} of ${players.length} player${players.length === 1 ? "" : "s"} selected for this game.</p>`
+    );
+  };
+
   const renderJuniorCaptainChoices = () => {
     const list = document.getElementById("gameCaptainChoices");
     if (!list) return;
 
-    const players = [...playersForTeam(currentTeamId)];
+    const players = [...playersForTeam(currentTeamId)]
+      .filter(player => selectedGamePlayerIds.includes(player.id));
     players.sort((a, b) =>
       captainCountForPlayer(a.id) - captainCountForPlayer(b.id) ||
       Number(a.number || 999) - Number(b.number || 999) ||
@@ -3103,23 +3768,36 @@
 
     const settings = fullSettingsForCurrentTeam();
     const players = playersForTeam(currentTeamId);
+    const playing = new Set(selectedGamePlayerIds);
     const captains = (settings.captains || [])
       .map(id => players.find(player => player.id === id))
-      .filter(Boolean);
+      .filter(player => player && playing.has(player.id));
     const vice = (settings.viceCaptains || [])
       .map(id => players.find(player => player.id === id))
-      .filter(Boolean);
+      .filter(player => player && playing.has(player.id));
 
     selectedGameCaptains = captains.map(player => player.id);
 
     if (!captains.length && !vice.length) {
-      wrap.innerHTML = `
-        <div class="soft-empty">
-          <span>🏅</span>
-          <strong>No season leadership set</strong>
-          <small>You can still start the game, but Team Settings is where Captains and Vice Captains are configured.</small>
-        </div>
-      `;
+      const hasConfiguredLeadership =
+        (settings.captains || []).length ||
+        (settings.viceCaptains || []).length;
+
+      wrap.innerHTML = hasConfiguredLeadership
+        ? `
+          <div class="soft-empty">
+            <span>🏅</span>
+            <strong>No season leaders are playing today</strong>
+            <small>You can still start the game. Adjust Who's Playing Today if a Captain or Vice Captain should be included.</small>
+          </div>
+        `
+        : `
+          <div class="soft-empty">
+            <span>🏅</span>
+            <strong>No season leadership set</strong>
+            <small>You can still start the game, but Team Settings is where Captains and Vice Captains are configured.</small>
+          </div>
+        `;
       return;
     }
 
@@ -3139,14 +3817,16 @@
     const junior = team && ["U9", "U10", "U12"].includes(team.ageGroup);
     const captainReady = !junior || selectedGameCaptains.length > 0;
     const interchangeReady = setupTrackInterchange !== null;
-    const rosterReady = players.length > 0;
+    const rosterReady = selectedGamePlayerIds.length > 0;
 
     const ready = captainReady && interchangeReady && rosterReady;
     const text = document.getElementById("gameSetupReadyText");
     const button = document.querySelector("[data-start-live-game]");
 
     if (!rosterReady) {
-      text.textContent = "Add at least one player before starting the game.";
+      text.textContent = players.length
+        ? "Choose at least one player who is playing today."
+        : "Add at least one player before starting the game.";
     } else if (!captainReady) {
       text.textContent = "Choose at least one captain for today.";
     } else if (!interchangeReady) {
@@ -3173,8 +3853,14 @@
     const juniorPanel = document.getElementById("juniorCaptainSetup");
     const seniorPanel = document.getElementById("seniorCaptainSetup");
 
+    const rosterPlayers = playersForTeam(currentTeamId);
+    selectedGamePlayerIds = rosterPlayers
+      .filter(player => player.membershipRole !== "playing_up")
+      .map(player => player.id);
     selectedGameCaptains = [];
     setupTrackInterchange = null;
+
+    renderGameRosterChoices();
 
     document.querySelectorAll("[data-interchange-choice]").forEach(button => {
       button.classList.remove("selected");
@@ -3215,6 +3901,30 @@
   };
 
   document.addEventListener("click", event => {
+    const rosterButton = event.target.closest("[data-game-roster-player]");
+    if (rosterButton) {
+      const playerId = rosterButton.dataset.gameRosterPlayer;
+
+      if (selectedGamePlayerIds.includes(playerId)) {
+        selectedGamePlayerIds = selectedGamePlayerIds.filter(id => id !== playerId);
+        selectedGameCaptains = selectedGameCaptains.filter(id => id !== playerId);
+      } else {
+        selectedGamePlayerIds.push(playerId);
+      }
+
+      renderGameRosterChoices();
+
+      const team = getCurrentTeam();
+      if (team && ["U9", "U10", "U12"].includes(team.ageGroup)) {
+        renderJuniorCaptainChoices();
+      } else {
+        renderSeniorLeadershipForGame();
+      }
+
+      updateGameSetupReadyState();
+      return;
+    }
+
     const captainButton = event.target.closest("[data-game-captain]");
     if (captainButton) {
       const playerId = captainButton.dataset.gameCaptain;
@@ -3246,7 +3956,10 @@
   document.querySelector("[data-start-live-game]")?.addEventListener("click", () => {
     const team = getCurrentTeam();
     const next = nextGameForCurrentTeam();
-    const players = playersForTeam(currentTeamId);
+    const selectedSet = new Set(selectedGamePlayerIds);
+    const players = playersForTeam(currentTeamId).filter(player =>
+      selectedSet.has(player.id)
+    );
     if (!team || !next || !players.length) return;
 
     const scoring = {};
@@ -3265,6 +3978,7 @@
       round: next.round,
       date: next.date,
       captainIds: [...selectedGameCaptains],
+      participantIds: players.map(player => player.id),
       trackInterchange: setupTrackInterchange === true,
       quarter: 1,
       hiddenInterchangeQuarters: [],
@@ -3291,8 +4005,20 @@
     return {goals, points, total: goals * 6 + points};
   };
 
+  const playersForLiveGame = game => {
+    const participantIds = new Set(
+      Array.isArray(game.participantIds) && game.participantIds.length
+        ? game.participantIds
+        : Object.keys(game.scoring || {})
+    );
+
+    return playersForTeam(currentTeamId).filter(player =>
+      participantIds.has(player.id)
+    );
+  };
+
   const renderLiveScoring = game => {
-    const players = playersForTeam(currentTeamId);
+    const players = playersForLiveGame(game);
     const list = document.getElementById("liveScoringList");
     if (!list) return;
 
@@ -3361,7 +4087,7 @@
     }
 
     const list = document.getElementById("interchangePlayerList");
-    const players = playersForTeam(currentTeamId);
+    const players = playersForLiveGame(game);
     const quarterData = game.interchange?.[currentLiveQuarter] || {};
 
     list.innerHTML = players.map(player => {
@@ -3511,7 +4237,7 @@
     if (!team || !game) return;
 
     const totals = scoreTotalsForGame(game);
-    const players = playersForTeam(currentTeamId);
+    const players = playersForLiveGame(game);
     const settings = fullSettingsForCurrentTeam();
     const awards = settings.awards || [];
 
@@ -3684,7 +4410,8 @@
     if (!team || !live) return;
 
     const totals = scoreTotalsForGame(live);
-    const players = playersForTeam(currentTeamId);
+    const rosterPlayers = playersForTeam(currentTeamId);
+    const players = playersForLiveGame(live);
     const settings = fullSettingsForCurrentTeam();
     const awards = settings.awards || [];
 
@@ -3704,7 +4431,11 @@
       button.textContent = "Saving…";
     }
 
-    const participantIds = new Set(Object.keys(live.scoring || {}));
+    const participantIds = new Set(
+      Array.isArray(live.participantIds) && live.participantIds.length
+        ? live.participantIds
+        : Object.keys(live.scoring || {})
+    );
     const playerStats = players
       .filter(player => participantIds.has(player.id))
       .map(player => {
@@ -3732,7 +4463,7 @@
       trackInterchange: Boolean(live.trackInterchange),
       scoring: JSON.parse(JSON.stringify(live.scoring || {})),
       playerStats,
-      rosterSnapshot: players.map(player => ({
+      rosterSnapshot: rosterPlayers.map(player => ({
         playerId: player.id,
         playerName: player.name,
         number: player.number || null
@@ -3754,7 +4485,7 @@
     saveAllCompletedGames(allGames);
 
     const allPlayers = getAllPlayers().map(player => {
-      if (!participantIds.has(player.id) || player.teamId !== currentTeamId) {
+      if (!participantIds.has(player.id)) {
         return player;
       }
 
