@@ -1756,6 +1756,319 @@
       return Number(b.round || 0) - Number(a.round || 0);
     });
 
+
+  let managerReviewGameId = null;
+  let managerReviewEditMode = false;
+  let managerReviewDraft = null;
+
+  const completedGameById = gameId =>
+    getAllCompletedGames().find(game =>
+      game.id === gameId && game.teamId === currentTeamId
+    );
+
+  const reviewGameParticipants = game => {
+    if ((game.playerStats || []).length) {
+      return (game.playerStats || []).map(stat => ({
+        playerId: stat.playerId,
+        playerName: stat.playerName,
+        number: stat.number || null,
+        goals: Number(stat.goals || 0),
+        points: Number(stat.points || 0),
+        score: Number(stat.score || 0)
+      }));
+    }
+
+    const playerMap = new Map(
+      playersForTeam(currentTeamId).map(player => [player.id, player])
+    );
+
+    return Object.entries(game.scoring || {}).map(([playerId, score]) => {
+      const player = playerMap.get(playerId);
+      const goals = Number(score?.goals || 0);
+      const points = Number(score?.points || 0);
+      return {
+        playerId,
+        playerName: player?.name || "Player",
+        number: player?.number || null,
+        goals,
+        points,
+        score: goals * 6 + points
+      };
+    });
+  };
+
+  const normaliseReviewDraft = game => {
+    const draft = JSON.parse(JSON.stringify(game));
+    draft.playerStats = reviewGameParticipants(draft).map(stat => {
+      const goals = Math.max(0, Number(stat.goals || 0));
+      const points = Math.max(0, Number(stat.points || 0));
+      return {...stat, goals, points, score: goals * 6 + points};
+    });
+
+    draft.scoring = {};
+    draft.playerStats.forEach(stat => {
+      draft.scoring[stat.playerId] = {
+        goals: stat.goals,
+        points: stat.points
+      };
+    });
+
+    draft.teamGoals = draft.playerStats.reduce((sum, stat) => sum + stat.goals, 0);
+    draft.teamPoints = draft.playerStats.reduce((sum, stat) => sum + stat.points, 0);
+    draft.teamScore = draft.teamGoals * 6 + draft.teamPoints;
+
+    draft.awards = (draft.awards || []).map(award => ({
+      ...award,
+      playerId: award.playerId || null,
+      playerName: award.playerName || null,
+      given: Boolean(award.playerId)
+    }));
+
+    return draft;
+  };
+
+  const renderManagerGameReview = () => {
+    const original = completedGameById(managerReviewGameId);
+    if (!original) {
+      renderManagerStats();
+      showScreen("managerStatsScreen");
+      return;
+    }
+
+    const game = managerReviewEditMode && managerReviewDraft
+      ? normaliseReviewDraft(managerReviewDraft)
+      : normaliseReviewDraft(original);
+
+    if (managerReviewEditMode) managerReviewDraft = game;
+
+    const team = getCurrentTeam();
+    document.getElementById("reviewGameTeamBadge").textContent =
+      team?.ageGroup || "TEAM";
+    document.getElementById("reviewGameTitle").textContent =
+      `Round ${game.round || "—"}`;
+    document.getElementById("reviewGameDate").textContent =
+      formatGameDate(game.date);
+    document.getElementById("reviewGameTeamName").textContent =
+      game.teamName || team?.name || "Team";
+    document.getElementById("reviewGameScoreBreakdown").textContent =
+      `${game.teamGoals} goal${game.teamGoals === 1 ? "" : "s"} • ` +
+      `${game.teamPoints} point${game.teamPoints === 1 ? "" : "s"}`;
+    document.getElementById("reviewGameTeamScore").textContent =
+      String(game.teamScore);
+
+    const playerWrap = document.getElementById("reviewGamePlayerStats");
+    playerWrap.innerHTML = game.playerStats.map(stat => {
+      if (managerReviewEditMode) {
+        return `
+          <div class="review-player-stat-row">
+            <div class="review-player-number">${stat.number || "—"}</div>
+            <div class="review-player-copy">
+              <strong>${stat.playerName}</strong>
+              <small>${stat.score} player points</small>
+            </div>
+            <div class="review-player-edit-controls">
+              <div class="review-number-field">
+                <label>Goals</label>
+                <input type="number" min="0" step="1"
+                  value="${stat.goals}"
+                  data-review-player-id="${stat.playerId}"
+                  data-review-stat-field="goals">
+              </div>
+              <div class="review-number-field">
+                <label>Points</label>
+                <input type="number" min="0" step="1"
+                  value="${stat.points}"
+                  data-review-player-id="${stat.playerId}"
+                  data-review-stat-field="points">
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      return `
+        <div class="review-player-stat-row">
+          <div class="review-player-number">${stat.number || "—"}</div>
+          <div class="review-player-copy">
+            <strong>${stat.playerName}</strong>
+            <small>${stat.goals} goal${stat.goals === 1 ? "" : "s"} • ${stat.points} point${stat.points === 1 ? "" : "s"}</small>
+          </div>
+          <div class="review-player-score">
+            <strong>${stat.score}</strong>
+            <span>player score</span>
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    const awardWrap = document.getElementById("reviewGameAwards");
+    const roster = playersForTeam(currentTeamId);
+
+    if (!(game.awards || []).length) {
+      awardWrap.innerHTML = `
+        <div class="soft-empty">
+          <span>🏆</span>
+          <strong>No awards were configured for this game</strong>
+          <small>There are no saved award outcomes to edit.</small>
+        </div>
+      `;
+    } else {
+      awardWrap.innerHTML = game.awards.map(award => {
+        if (!managerReviewEditMode) {
+          return `
+            <div class="review-award-row">
+              <div class="review-award-icon">🏆</div>
+              <div>
+                <strong>${award.awardName}</strong>
+                <small>${award.playerId ? "Recipient saved for this game" : "Recorded as not given"}</small>
+              </div>
+              <span class="review-award-result">${award.playerName || "No award this game"}</span>
+            </div>
+          `;
+        }
+
+        const optionMap = new Map(
+          roster.map(player => [player.id, player.name])
+        );
+        if (award.playerId && !optionMap.has(award.playerId)) {
+          optionMap.set(award.playerId, award.playerName || "Previous player");
+        }
+
+        const options = [
+          `<option value="">No award this game</option>`,
+          ...[...optionMap.entries()].map(([playerId, playerName]) =>
+            `<option value="${playerId}" ${award.playerId === playerId ? "selected" : ""}>${playerName}</option>`
+          )
+        ].join("");
+
+        return `
+          <div class="review-award-row">
+            <div class="review-award-icon">🏆</div>
+            <div>
+              <strong>${award.awardName}</strong>
+              <small>Choose the corrected recipient.</small>
+            </div>
+            <select data-review-award-id="${award.awardId}">
+              ${options}
+            </select>
+          </div>
+        `;
+      }).join("");
+    }
+
+    document.getElementById("reviewGameEditButton")?.classList.toggle(
+      "hidden", managerReviewEditMode
+    );
+    document.getElementById("reviewGameEditActions")?.classList.toggle(
+      "hidden", !managerReviewEditMode
+    );
+  };
+
+  const openManagerCompletedGame = gameId => {
+    managerReviewGameId = gameId;
+    managerReviewEditMode = false;
+    managerReviewDraft = null;
+    document.getElementById("reviewGameNotice")?.classList.add("hidden");
+    renderManagerGameReview();
+    showScreen("managerGameReviewScreen");
+  };
+
+  document.addEventListener("click", event => {
+    const gameCard = event.target.closest("[data-completed-game-id]");
+    if (!gameCard) return;
+    openManagerCompletedGame(gameCard.dataset.completedGameId);
+  });
+
+  document.querySelector("[data-back-game-review-stats]")?.addEventListener("click", () => {
+    managerReviewGameId = null;
+    managerReviewEditMode = false;
+    managerReviewDraft = null;
+    renderManagerStats();
+    showScreen("managerStatsScreen");
+  });
+
+  document.querySelector("[data-edit-completed-game]")?.addEventListener("click", () => {
+    const game = completedGameById(managerReviewGameId);
+    if (!game) return;
+    managerReviewDraft = normaliseReviewDraft(game);
+    managerReviewEditMode = true;
+    document.getElementById("reviewGameNotice")?.classList.add("hidden");
+    renderManagerGameReview();
+  });
+
+  document.querySelector("[data-cancel-completed-game-edit]")?.addEventListener("click", () => {
+    managerReviewEditMode = false;
+    managerReviewDraft = null;
+    renderManagerGameReview();
+  });
+
+  document.addEventListener("change", event => {
+    const input = event.target.closest("[data-review-player-id][data-review-stat-field]");
+    if (!input || !managerReviewEditMode || !managerReviewDraft) return;
+
+    const stat = managerReviewDraft.playerStats.find(item =>
+      item.playerId === input.dataset.reviewPlayerId
+    );
+    if (!stat) return;
+
+    stat[input.dataset.reviewStatField] = Math.max(0, Number(input.value || 0));
+    managerReviewDraft = normaliseReviewDraft(managerReviewDraft);
+    renderManagerGameReview();
+  });
+
+  document.addEventListener("change", event => {
+    const select = event.target.closest("[data-review-award-id]");
+    if (!select || !managerReviewEditMode || !managerReviewDraft) return;
+
+    const award = managerReviewDraft.awards.find(item =>
+      item.awardId === select.dataset.reviewAwardId
+    );
+    if (!award) return;
+
+    const playerId = select.value || null;
+    const player = playersForTeam(currentTeamId).find(item => item.id === playerId);
+    const existingStat = managerReviewDraft.playerStats.find(item => item.playerId === playerId);
+
+    award.playerId = playerId;
+    award.playerName = player?.name || existingStat?.playerName || null;
+    award.given = Boolean(playerId);
+
+    renderManagerGameReview();
+  });
+
+  document.querySelector("[data-save-completed-game-edit]")?.addEventListener("click", () => {
+    if (!managerReviewDraft || !managerReviewGameId) return;
+
+    const corrected = normaliseReviewDraft(managerReviewDraft);
+
+    if (!confirm(
+      `Save corrections to Round ${corrected.round}? Season stats, awards, Golden Boot and reports will update. Career games will not be changed.`
+    )) return;
+
+    const allGames = getAllCompletedGames();
+    const index = allGames.findIndex(game =>
+      game.id === managerReviewGameId && game.teamId === currentTeamId
+    );
+    if (index < 0) return;
+
+    corrected.correctedAt = new Date().toISOString();
+    corrected.correctedCount = Number(allGames[index].correctedCount || 0) + 1;
+    allGames[index] = corrected;
+    saveAllCompletedGames(allGames);
+
+    managerReviewDraft = null;
+    managerReviewEditMode = false;
+
+    const notice = document.getElementById("reviewGameNotice");
+    if (notice) {
+      notice.textContent =
+        "✓ Corrections saved • Season stats, awards, Golden Boot and reports updated • Career games unchanged";
+      notice.classList.remove("hidden");
+    }
+
+    renderManagerGameReview();
+  });
+
   const renderManagerStats = () => {
     const team = getCurrentTeam();
     if (!team) return;
@@ -1857,7 +2170,7 @@
           `).join("");
 
         return `
-          <article class="stats-game-card">
+          <article class="stats-game-card" data-completed-game-id="${game.id}">
             <div class="stats-game-top">
               <div class="stats-game-round">
                 <strong>R${game.round || "—"}</strong>
@@ -1865,7 +2178,7 @@
               </div>
               <div class="stats-game-copy">
                 <strong>${Number(game.teamGoals || 0)} goal${Number(game.teamGoals || 0) === 1 ? "" : "s"} • ${Number(game.teamPoints || 0)} point${Number(game.teamPoints || 0) === 1 ? "" : "s"}</strong>
-                <small>${formatGameDate(game.date)} • ${Number((game.awards || []).filter(award => award.playerId).length)} award${Number((game.awards || []).filter(award => award.playerId).length) === 1 ? "" : "s"} given</small>
+                <small>${formatGameDate(game.date)} • ${Number((game.awards || []).filter(award => award.playerId).length)} award${Number((game.awards || []).filter(award => award.playerId).length) === 1 ? "" : "s"} given${game.correctedAt ? " • Corrected" : ""}</small>
               </div>
               <div class="stats-game-score">
                 <strong>${Number(game.teamScore || 0)}</strong>
@@ -2219,7 +2532,7 @@
           text:
             `Round ${game.round || "-"} - ${formatGameDate(game.date)} - ` +
             `${Number(game.teamGoals || 0)} goals, ${Number(game.teamPoints || 0)} points - ` +
-            `Team score ${Number(game.teamScore || 0)}`,
+            `Team score ${Number(game.teamScore || 0)}${game.correctedAt ? " - Corrected" : ""}`,
           bold: true,
           gap: 17
         });

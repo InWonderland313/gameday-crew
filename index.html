@@ -1065,6 +1065,78 @@
 </section>
 
 
+
+<section id="managerGameReviewScreen" class="screen manager-screen">
+  <header class="manager-hero">
+    <div class="manager-hero-inner">
+      <button class="icon-btn" data-back-game-review-stats aria-label="Back to Stats">←</button>
+      <div class="team-badge-large" id="reviewGameTeamBadge">U14</div>
+      <div class="team-hero-copy">
+        <p class="eyebrow">COMPLETED GAME</p>
+        <h1 id="reviewGameTitle">Round —</h1>
+        <p id="reviewGameDate" class="team-meta">—</p>
+      </div>
+    </div>
+  </header>
+
+  <div class="content manager-content">
+    <div id="reviewGameNotice" class="completion-notice hidden"></div>
+
+    <section class="review-game-score-card">
+      <div>
+        <p class="eyebrow">FINAL SCORING</p>
+        <h2 id="reviewGameTeamName">Team</h2>
+        <p id="reviewGameScoreBreakdown" class="muted">0 goals • 0 points</p>
+      </div>
+      <div class="review-game-total">
+        <strong id="reviewGameTeamScore">0</strong>
+        <small>team score</small>
+      </div>
+    </section>
+
+    <section class="manager-section">
+      <div class="section-heading-row">
+        <div>
+          <p class="eyebrow">PLAYER STATS</p>
+          <h2 class="section-title">Scoring</h2>
+        </div>
+      </div>
+      <div id="reviewGamePlayerStats" class="review-game-player-stats"></div>
+    </section>
+
+    <section class="manager-section">
+      <div class="section-heading-row">
+        <div>
+          <p class="eyebrow">AWARDS</p>
+          <h2 class="section-title">Post-game awards</h2>
+        </div>
+      </div>
+      <div id="reviewGameAwards" class="review-game-awards"></div>
+    </section>
+
+    <section class="review-game-edit-note">
+      <strong>Need to correct something?</strong>
+      <span>Editing a completed game updates season stats, awards, Golden Boot and reports. It does not add another career game.</span>
+    </section>
+
+    <section class="review-game-actions">
+      <button id="reviewGameEditButton" class="btn btn-secondary full-width" data-edit-completed-game>Edit Game</button>
+      <div id="reviewGameEditActions" class="review-game-edit-actions hidden">
+        <button class="btn btn-secondary" data-cancel-completed-game-edit>Cancel</button>
+        <button class="btn btn-primary" data-save-completed-game-edit>Save Corrections</button>
+      </div>
+    </section>
+  </div>
+
+  <nav class="manager-bottom-nav">
+    <button class="manager-nav-item" data-manager-tab="home"><span>⌂</span><small>Home</small></button>
+    <button class="manager-nav-item" data-manager-tab="team"><span>👥</span><small>Team</small></button>
+    <button class="manager-nav-item" data-manager-tab="game"><span>🏉</span><small>Game</small></button>
+    <button class="manager-nav-item manager-nav-active" data-manager-tab="stats"><span>📊</span><small>Stats</small></button>
+    <button class="manager-nav-item" data-manager-tab="awards"><span>🏆</span><small>Awards</small></button>
+  </nav>
+</section>
+
 <section id="managerStatsScreen" class="screen manager-screen">
   <header class="manager-hero">
     <div class="manager-hero-inner">

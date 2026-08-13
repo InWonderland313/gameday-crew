@@ -873,3 +873,87 @@ input:focus,select:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(244,
 .golden-boot-leaders-large .golden-boot-chip{
   padding:9px 12px;font-size:12px
 }
+
+/* V2.13 Completed Game Review & Edit */
+.stats-game-card[data-completed-game-id]{
+  cursor:pointer;
+  transition:border-color .15s ease, transform .15s ease, box-shadow .15s ease
+}
+.stats-game-card[data-completed-game-id]:hover{
+  border-color:#B9C5D4;
+  transform:translateY(-1px);
+  box-shadow:0 8px 22px rgba(13,34,68,.07)
+}
+.review-game-score-card{
+  display:flex;justify-content:space-between;align-items:center;gap:18px;
+  background:#fff;border:1px solid var(--line);border-radius:18px;padding:17px;
+  box-shadow:0 6px 20px rgba(13,34,68,.05)
+}
+.review-game-score-card h2{margin:3px 0 5px;color:var(--navy);font-size:24px}
+.review-game-total{text-align:right;color:var(--navy)}
+.review-game-total strong{display:block;font-size:36px;line-height:1}
+.review-game-total small{display:block;color:var(--muted);margin-top:4px;font-size:10px}
+
+.review-game-player-stats{display:grid;gap:9px}
+.review-player-stat-row{
+  display:grid;grid-template-columns:52px 1fr auto;gap:12px;align-items:center;
+  background:#fff;border:1px solid var(--line);border-radius:15px;padding:11px 12px
+}
+.review-player-number{
+  width:50px;height:50px;border-radius:13px;background:var(--navy);color:var(--gold);
+  display:grid;place-items:center;font-weight:900;font-size:17px
+}
+.review-player-copy strong{display:block;color:var(--navy)}
+.review-player-copy small{display:block;color:var(--muted);margin-top:3px}
+.review-player-score{font-size:12px;color:var(--muted);text-align:right}
+.review-player-score strong{display:block;color:var(--navy);font-size:22px}
+
+.review-player-edit-controls{
+  display:grid;grid-template-columns:96px 96px;gap:8px
+}
+.review-number-field{
+  display:grid;grid-template-columns:1fr;gap:4px
+}
+.review-number-field label{
+  font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:800
+}
+.review-number-field input{
+  width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:10px;
+  padding:9px 8px;font:inherit;font-weight:900;color:var(--navy);background:#fff
+}
+.review-number-field input:focus{outline:2px solid rgba(244,180,0,.28);border-color:var(--gold)}
+
+.review-game-awards{display:grid;gap:9px}
+.review-award-row{
+  display:grid;grid-template-columns:44px 1fr auto;gap:11px;align-items:center;
+  background:#fff;border:1px solid var(--line);border-radius:14px;padding:11px 12px
+}
+.review-award-icon{
+  width:42px;height:42px;border-radius:12px;background:var(--gold-soft);
+  display:grid;place-items:center
+}
+.review-award-row strong{display:block;color:var(--navy)}
+.review-award-row small{display:block;color:var(--muted);margin-top:3px}
+.review-award-result{
+  padding:6px 9px;border-radius:999px;background:#F7F8FA;border:1px solid var(--line);
+  color:var(--navy);font-size:10px;font-weight:900
+}
+.review-award-row select{
+  min-width:190px;border:1px solid var(--line);border-radius:10px;padding:9px 10px;
+  color:var(--navy);font:inherit;background:#fff
+}
+.review-game-edit-note{
+  display:grid;gap:4px;background:#FFF7D9;border:1px solid #F1D179;border-radius:14px;
+  padding:12px 13px;color:var(--navy)
+}
+.review-game-edit-note span{color:var(--muted);font-size:11px;line-height:1.45}
+.review-game-actions{margin-top:12px}
+.review-game-edit-actions{display:grid;grid-template-columns:1fr 2fr;gap:10px}
+
+@media(max-width:620px){
+  .review-player-stat-row{grid-template-columns:48px 1fr}
+  .review-player-score,.review-player-edit-controls{grid-column:2;text-align:left}
+  .review-player-edit-controls{grid-template-columns:1fr 1fr}
+  .review-award-row{grid-template-columns:42px 1fr}
+  .review-award-result,.review-award-row select{grid-column:2;justify-self:stretch;min-width:0;width:100%}
+}
