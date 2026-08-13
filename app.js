@@ -1116,6 +1116,347 @@
     saveTeamSettings(all);
     document.getElementById("milestonesSavedMessage")?.classList.remove("hidden");
   });
+
+  const NEXT_GAME_KEY = "gdc_v2_demo_next_games";
+  const GAMES_KEY = "gdc_v2_demo_games";
+
+  const getNextGames = () => {
+    try { return JSON.parse(localStorage.getItem(NEXT_GAME_KEY) || "{}"); }
+    catch { return {}; }
+  };
+
+  const saveNextGames = data => localStorage.setItem(NEXT_GAME_KEY, JSON.stringify(data));
+
+  const gamesForTeam = teamId => {
+    try {
+      const all = JSON.parse(localStorage.getItem(GAMES_KEY) || "[]");
+      return all.filter(g => g.teamId === teamId);
+    } catch {
+      return [];
+    }
+  };
+
+  const nextGameForCurrentTeam = () => {
+    const all = getNextGames();
+    return all[currentTeamId] || null;
+  };
+
+  const formatGameDate = value => {
+    if (!value) return "—";
+    const date = new Date(value + "T12:00:00");
+    return date.toLocaleDateString("en-AU", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      year: "numeric"
+    });
+  };
+
+  const renderNextGameHome = () => {
+    const game = nextGameForCurrentTeam();
+    const heading = document.getElementById("nextGameHeading");
+    const subtext = document.getElementById("nextGameSubtext");
+    const details = document.getElementById("nextGameDetails");
+    const dateBadge = document.getElementById("nextGameDateBadge");
+    const setBtn = document.getElementById("setNextGameButton");
+    const prepareBtn = document.getElementById("prepareGameButton");
+    const editBtn = document.getElementById("editNextGameButton");
+
+    if (!game) {
+      heading.textContent = "Set up your next game";
+      subtext.textContent = "Add the round and date so GameDay Crew is ready.";
+      details?.classList.add("hidden");
+      dateBadge?.classList.add("hidden");
+      setBtn?.classList.remove("hidden");
+      prepareBtn?.classList.add("hidden");
+      editBtn?.classList.add("hidden");
+      return;
+    }
+
+    heading.textContent = `Round ${game.round}`;
+    subtext.textContent = "Your next game is ready for game-day setup.";
+    document.getElementById("nextGameRoundDisplay").textContent = `Round ${game.round}`;
+    document.getElementById("nextGameDateDisplay").textContent = formatGameDate(game.date);
+
+    const d = new Date(game.date + "T12:00:00");
+    document.getElementById("nextGameDateDay").textContent = String(d.getDate());
+    document.getElementById("nextGameDateMonth").textContent =
+      d.toLocaleDateString("en-AU", {month: "short"}).toUpperCase();
+
+    details?.classList.remove("hidden");
+    dateBadge?.classList.remove("hidden");
+    setBtn?.classList.add("hidden");
+    prepareBtn?.classList.remove("hidden");
+    editBtn?.classList.remove("hidden");
+  };
+
+  const milestoneCardsForCurrentTeam = () => {
+    const players = currentTeamId ? playersForTeam(currentTeamId) : [];
+    const settings = fullSettingsForCurrentTeam();
+    const milestones = [...(settings.milestones || [50, 100, 150])].sort((a, b) => a - b);
+    const watch = Number(settings.milestoneWindow || 5);
+    const cards = [];
+
+    players.forEach(player => {
+      const games = Number(player.careerGames || 0);
+      for (const target of milestones) {
+        const away = target - games;
+        if (away >= 0 && away <= watch) {
+          cards.push({player, target, away});
+          break;
+        }
+      }
+    });
+
+    return cards.sort((a, b) =>
+      a.away - b.away ||
+      a.target - b.target ||
+      a.player.name.localeCompare(b.player.name)
+    );
+  };
+
+  const renderMilestoneWatchHome = () => {
+    const cards = milestoneCardsForCurrentTeam();
+    const list = document.getElementById("milestoneWatchList");
+    const empty = document.getElementById("milestoneWatchEmpty");
+
+    if (!cards.length) {
+      list.innerHTML = "";
+      empty?.classList.remove("hidden");
+      return;
+    }
+
+    empty?.classList.add("hidden");
+    list.innerHTML = cards.map(({player, target, away}) => `
+      <div class="milestone-watch-card">
+        <div class="milestone-watch-number">${target}</div>
+        <div>
+          <strong>${player.name}</strong>
+          <small>${Number(player.careerGames || 0)} career games • ${target}-game milestone</small>
+        </div>
+        <span class="games-away-pill">
+          ${away === 0 ? "Milestone game" : `${away} game${away === 1 ? "" : "s"} away`}
+        </span>
+      </div>
+    `).join("");
+  };
+
+  const renderLeadershipHome = () => {
+    const team = getCurrentTeam();
+    if (!team) return;
+
+    const title = document.getElementById("leadershipHomeTitle");
+    const text = document.getElementById("leadershipHomeText");
+    const chips = document.getElementById("leadershipHomeNames");
+    chips.innerHTML = "";
+
+    if (["U9", "U10", "U12"].includes(team.ageGroup)) {
+      title.textContent = "Weekly rotating captains";
+      text.textContent =
+        "Choose captain(s) during game setup. Players yet to captain will be shown first.";
+      chips.innerHTML =
+        '<span class="leader-chip captain">🔄 Fairness tracking on</span>';
+      return;
+    }
+
+    const settings = fullSettingsForCurrentTeam();
+    const players = playersForTeam(currentTeamId);
+    const captains = (settings.captains || [])
+      .map(id => players.find(p => p.id === id))
+      .filter(Boolean);
+    const vice = (settings.viceCaptains || [])
+      .map(id => players.find(p => p.id === id))
+      .filter(Boolean);
+
+    title.textContent = "Season leadership";
+
+    if (!captains.length && !vice.length) {
+      text.textContent = "No Captains or Vice Captains have been set yet.";
+      chips.innerHTML = '<span class="leader-chip">Set in Team Settings</span>';
+      return;
+    }
+
+    text.textContent = "Leadership is set for the season.";
+    chips.innerHTML = [
+      ...captains.map(p => `<span class="leader-chip captain">C • ${p.name}</span>`),
+      ...vice.map(p => `<span class="leader-chip">VC • ${p.name}</span>`)
+    ].join("");
+  };
+
+  const renderAwardsHome = () => {
+    const settings = fullSettingsForCurrentTeam();
+    const awards = settings.awards || [];
+    const list = document.getElementById("homeAwardsList");
+    const empty = document.getElementById("homeAwardsEmpty");
+
+    document.getElementById("homeAwardTypeCount").textContent = String(awards.length);
+
+    if (!awards.length) {
+      list.innerHTML = "";
+      empty?.classList.remove("hidden");
+      return;
+    }
+
+    empty?.classList.add("hidden");
+    list.innerHTML = awards.map((award, index) =>
+      `<span class="award-home-chip">🏆 ${index + 1}. ${award.name}</span>`
+    ).join("");
+  };
+
+  const renderTeamHome = () => {
+    const team = getCurrentTeam();
+    if (!team) return;
+
+    document.getElementById("teamHomeBadge").textContent = team.ageGroup || "TEAM";
+    document.getElementById("teamHomeName").textContent = team.name;
+
+    const club = (() => {
+      try { return JSON.parse(localStorage.getItem("gdc_v2_demo_club") || "{}"); }
+      catch { return {}; }
+    })();
+
+    const metaBits = [team.ageGroup, team.category];
+    if (team.division) metaBits.push(team.division);
+    metaBits.push(`Season ${club.season || 2027}`);
+    document.getElementById("teamHomeMeta").textContent = metaBits.filter(Boolean).join(" • ");
+
+    const players = playersForTeam(currentTeamId);
+    const nextGame = nextGameForCurrentTeam();
+
+    document.getElementById("homePlayerCount").textContent = String(players.length);
+    document.getElementById("homeGamesCount").textContent =
+      String(gamesForTeam(currentTeamId).length);
+    document.getElementById("homeReadyStatus").textContent =
+      nextGame && players.length ? "Yes" : "No";
+
+    renderNextGameHome();
+    renderMilestoneWatchHome();
+    renderLeadershipHome();
+    renderAwardsHome();
+  };
+
+  document.querySelector("[data-open-team-home]")?.addEventListener("click", () => {
+    renderTeamHome();
+    showScreen("teamHomeScreen");
+  });
+
+  document.querySelector("[data-back-team-admin-from-home]")?.addEventListener("click", () => {
+    renderTeamAdmin();
+    showScreen("teamAdminScreen");
+  });
+
+  const openNextGameForm = () => {
+    const existing = nextGameForCurrentTeam();
+    document.getElementById("nextRoundInput").value = existing?.round || "";
+    document.getElementById("nextGameDateInput").value = existing?.date || "";
+    document.getElementById("nextGameSetupPanel")?.classList.remove("hidden");
+    document.getElementById("setNextGameButton")?.classList.add("hidden");
+    document.getElementById("prepareGameButton")?.classList.add("hidden");
+    document.getElementById("editNextGameButton")?.classList.add("hidden");
+  };
+
+  document.querySelector("[data-show-next-game-form]")?.addEventListener("click", openNextGameForm);
+  document.querySelector("[data-edit-next-game]")?.addEventListener("click", openNextGameForm);
+
+  document.querySelector("[data-cancel-next-game]")?.addEventListener("click", () => {
+    document.getElementById("nextGameSetupPanel")?.classList.add("hidden");
+    renderNextGameHome();
+  });
+
+  document.querySelector("[data-save-next-game]")?.addEventListener("click", () => {
+    if (!currentTeamId) return;
+
+    const round = Number(document.getElementById("nextRoundInput")?.value || 0);
+    const date = document.getElementById("nextGameDateInput")?.value;
+
+    if (!round || round < 1) return alert("Enter the round number.");
+    if (!date) return alert("Choose the game date.");
+
+    const all = getNextGames();
+    all[currentTeamId] = {
+      teamId: currentTeamId,
+      round,
+      date,
+      updatedAt: new Date().toISOString()
+    };
+    saveNextGames(all);
+
+    document.getElementById("nextGameSetupPanel")?.classList.add("hidden");
+    renderTeamHome();
+  });
+
+  document.querySelector("[data-prepare-game]")?.addEventListener("click", () => {
+    const msg = document.getElementById("gameSetupComingMessage");
+    msg?.classList.remove("hidden");
+    msg?.scrollIntoView({behavior: "smooth", block: "center"});
+  });
+
+  const managerTabCopy = {
+    team: {
+      icon: "👥",
+      title: "Team",
+      heading: "Team list & player profiles",
+      text:
+        "Next we’ll turn this into the manager-facing Team tab with player profiles, career games and season stats."
+    },
+    game: {
+      icon: "🏉",
+      title: "Game",
+      heading: "Game-day setup",
+      text:
+        "Next build: select captain(s), choose whether to track interchange, then start the game."
+    },
+    stats: {
+      icon: "📊",
+      title: "Stats",
+      heading: "Season stats",
+      text:
+        "This will hold player goals, points, games, awards and exportable season summaries."
+    },
+    awards: {
+      icon: "🏆",
+      title: "Awards",
+      heading: "Awards history",
+      text:
+        "This will show who has received each award, including players yet to receive an award."
+    }
+  };
+
+  const openManagerPlaceholder = tab => {
+    const copy = managerTabCopy[tab];
+    if (!copy) return;
+
+    document.getElementById("managerPlaceholderTitle").textContent = copy.title;
+    document.getElementById("managerPlaceholderIcon").textContent = copy.icon;
+    document.getElementById("managerPlaceholderHeading").textContent = copy.heading;
+    document.getElementById("managerPlaceholderText").textContent = copy.text;
+    showScreen("managerPlaceholderScreen");
+
+    document.querySelectorAll("#managerPlaceholderScreen [data-manager-tab]").forEach(btn => {
+      btn.classList.toggle("manager-nav-active", btn.dataset.managerTab === tab);
+    });
+  };
+
+  document.querySelectorAll("[data-manager-tab]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const tab = btn.dataset.managerTab;
+
+      if (tab === "home") {
+        renderTeamHome();
+        showScreen("teamHomeScreen");
+      } else {
+        openManagerPlaceholder(tab);
+      }
+    });
+  });
+
+  document.querySelectorAll("[data-back-manager-home]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      renderTeamHome();
+      showScreen("teamHomeScreen");
+    });
+  });
+
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker.register("./sw.js").catch(err => console.warn("Service worker registration failed:", err));

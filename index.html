@@ -310,6 +310,17 @@
     </section>
 
     <section class="dashboard-section">
+      <button class="team-home-launch" data-open-team-home>
+        <span class="team-home-launch-icon">🏠</span>
+        <span>
+          <strong>Open Team Home</strong>
+          <small>See the manager dashboard, milestones and next game.</small>
+        </span>
+        <span class="chevron">›</span>
+      </button>
+    </section>
+
+    <section class="dashboard-section">
       <div class="setup-actions">
         <button class="setup-action-card" data-open-team-players>
           <span class="setup-action-icon">🧒</span>
@@ -552,6 +563,173 @@
   </nav>
 </section>
 
+
+
+<section id="teamHomeScreen" class="screen manager-screen">
+  <header class="manager-hero">
+    <div class="manager-hero-inner">
+      <button class="icon-btn" data-back-team-admin-from-home aria-label="Back">←</button>
+      <div class="team-badge-large" id="teamHomeBadge">U14</div>
+      <div class="team-hero-copy">
+        <p class="eyebrow">TEAM HOME</p>
+        <h1 id="teamHomeName">Team</h1>
+        <p id="teamHomeMeta" class="team-meta">Season 2027</p>
+      </div>
+    </div>
+  </header>
+
+  <div class="content manager-content">
+    <section class="game-card">
+      <div class="game-card-top">
+        <div>
+          <p class="eyebrow">NEXT GAME</p>
+          <h1 id="nextGameHeading">Set up your next game</h1>
+          <p id="nextGameSubtext" class="muted">Add the round and date so GameDay Crew is ready.</p>
+        </div>
+        <div id="nextGameDateBadge" class="date-badge hidden">
+          <strong id="nextGameDateDay">--</strong>
+          <small id="nextGameDateMonth">---</small>
+        </div>
+      </div>
+
+      <div id="nextGameDetails" class="next-game-details hidden">
+        <div class="next-game-chip">
+          <span>🏉</span>
+          <div><small>ROUND</small><strong id="nextGameRoundDisplay">Round 1</strong></div>
+        </div>
+        <div class="next-game-chip">
+          <span>📅</span>
+          <div><small>DATE</small><strong id="nextGameDateDisplay">—</strong></div>
+        </div>
+      </div>
+
+      <div id="nextGameSetupPanel" class="quick-game-form hidden">
+        <div class="two-col-form">
+          <label>Round
+            <input id="nextRoundInput" type="number" min="1" max="99" placeholder="e.g. 6">
+          </label>
+          <label>Date
+            <input id="nextGameDateInput" type="date">
+          </label>
+        </div>
+        <div class="quick-form-actions">
+          <button class="btn btn-secondary" data-cancel-next-game>Cancel</button>
+          <button class="btn btn-primary" data-save-next-game>Save Game</button>
+        </div>
+      </div>
+
+      <button id="setNextGameButton" class="btn btn-primary full-width game-cta" data-show-next-game-form>Set Up Next Game</button>
+      <button id="prepareGameButton" class="btn btn-primary full-width game-cta hidden" data-prepare-game>Set Up Game Day</button>
+      <button id="editNextGameButton" class="text-btn full-width hidden" data-edit-next-game>Edit round / date</button>
+    </section>
+
+    <section id="milestoneWatchSection" class="manager-section">
+      <div class="section-heading-row">
+        <div>
+          <p class="eyebrow">MILESTONE WATCH</p>
+          <h2 class="section-title">Coming up</h2>
+        </div>
+      </div>
+      <div id="milestoneWatchList" class="milestone-watch-list"></div>
+      <div id="milestoneWatchEmpty" class="soft-empty">
+        <span>🎯</span>
+        <strong>No milestones in range</strong>
+        <small>Players will appear here when they enter your Milestone Watch window.</small>
+      </div>
+    </section>
+
+    <section class="manager-section">
+      <div id="leadershipHomeCard" class="home-info-card">
+        <div class="home-info-icon">🏅</div>
+        <div class="home-info-copy">
+          <p class="eyebrow">LEADERSHIP</p>
+          <h2 id="leadershipHomeTitle">Leadership</h2>
+          <p id="leadershipHomeText" class="muted">—</p>
+          <div id="leadershipHomeNames" class="leader-chips"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="manager-section">
+      <p class="eyebrow">TEAM SNAPSHOT</p>
+      <div class="home-stat-grid">
+        <button class="home-stat-card" data-manager-tab="team">
+          <span>🧒</span>
+          <strong id="homePlayerCount">0</strong>
+          <small>Players</small>
+        </button>
+        <button class="home-stat-card" data-manager-tab="awards">
+          <span>🏆</span>
+          <strong id="homeAwardTypeCount">0</strong>
+          <small>Award types</small>
+        </button>
+        <button class="home-stat-card" data-manager-tab="stats">
+          <span>🏉</span>
+          <strong id="homeGamesCount">0</strong>
+          <small>Games</small>
+        </button>
+        <button class="home-stat-card" data-manager-tab="game">
+          <span>📋</span>
+          <strong id="homeReadyStatus">—</strong>
+          <small>Game ready</small>
+        </button>
+      </div>
+    </section>
+
+    <section id="homeAwardsSection" class="manager-section">
+      <div class="section-heading-row">
+        <div>
+          <p class="eyebrow">AWARDS</p>
+          <h2 class="section-title">Configured for this team</h2>
+        </div>
+      </div>
+      <div id="homeAwardsList" class="award-home-list"></div>
+      <div id="homeAwardsEmpty" class="soft-empty">
+        <span>🏆</span>
+        <strong>No awards configured</strong>
+        <small>Add award types in Team Settings.</small>
+      </div>
+    </section>
+
+    <div id="gameSetupComingMessage" class="starter-message hidden">
+      Next build: captain selection, optional interchange tracking, then Start Game.
+    </div>
+  </div>
+
+  <nav class="manager-bottom-nav">
+    <button class="manager-nav-item manager-nav-active" data-manager-tab="home"><span>⌂</span><small>Home</small></button>
+    <button class="manager-nav-item" data-manager-tab="team"><span>👥</span><small>Team</small></button>
+    <button class="manager-nav-item" data-manager-tab="game"><span>🏉</span><small>Game</small></button>
+    <button class="manager-nav-item" data-manager-tab="stats"><span>📊</span><small>Stats</small></button>
+    <button class="manager-nav-item" data-manager-tab="awards"><span>🏆</span><small>Awards</small></button>
+  </nav>
+</section>
+
+<section id="managerPlaceholderScreen" class="screen manager-screen">
+  <header class="topbar">
+    <button class="icon-btn" data-back-manager-home aria-label="Back">←</button>
+    <div>
+      <p class="eyebrow">TEAM APP</p>
+      <h2 id="managerPlaceholderTitle">Team</h2>
+    </div>
+  </header>
+  <div class="content dashboard-content">
+    <div class="success-panel">
+      <div class="success-big" id="managerPlaceholderIcon">🏉</div>
+      <p class="eyebrow">COMING NEXT</p>
+      <h1 id="managerPlaceholderHeading">Team section</h1>
+      <p id="managerPlaceholderText" class="muted">This section is next in the build sequence.</p>
+      <button class="btn btn-primary full-width" data-back-manager-home>Back to Team Home</button>
+    </div>
+  </div>
+  <nav class="manager-bottom-nav">
+    <button class="manager-nav-item" data-manager-tab="home"><span>⌂</span><small>Home</small></button>
+    <button class="manager-nav-item" data-manager-tab="team"><span>👥</span><small>Team</small></button>
+    <button class="manager-nav-item" data-manager-tab="game"><span>🏉</span><small>Game</small></button>
+    <button class="manager-nav-item" data-manager-tab="stats"><span>📊</span><small>Stats</small></button>
+    <button class="manager-nav-item" data-manager-tab="awards"><span>🏆</span><small>Awards</small></button>
+  </nav>
+</section>
 
 <section id="teamSettingsScreen" class="screen">
   <header class="topbar">
