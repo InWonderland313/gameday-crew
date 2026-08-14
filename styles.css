@@ -1859,3 +1859,9 @@ input:focus,select:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(244,
     gap:6px
   }
 }
+
+
+/* V2.17 archived season PDF */
+.archive-season-pdf-button{
+  margin:12px 0 16px
+}

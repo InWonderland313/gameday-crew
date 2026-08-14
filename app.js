@@ -5599,6 +5599,307 @@ Create a separate player record anyway?`
     showScreen("clubSeasonsScreen");
   };
 
+  const archiveSeasonPdfLines = archive => {
+    if (!archive) return [];
+
+    const playerCount = new Set(
+      (archive.memberships || []).map(item => item.playerId)
+    ).size;
+
+    const totalGoals = (archive.games || []).reduce(
+      (sum, game) => sum + Number(game.teamGoals || 0),
+      0
+    );
+    const totalPoints = (archive.games || []).reduce(
+      (sum, game) => sum + Number(game.teamPoints || 0),
+      0
+    );
+
+    const lines = [
+      {text: "GameDay Crew", size: 11, bold: true},
+      {
+        text: `${archive.clubName || "Club"} - Season ${archive.season} Archive`,
+        size: 20,
+        bold: true,
+        gap: 27
+      },
+      {
+        text:
+          `Archived ${new Date(archive.archivedAt).toLocaleDateString("en-AU", {day:"numeric", month:"short", year:"numeric"})} - Read-only season record`,
+        size: 10,
+        gap: 21
+      },
+      {text: "Season Summary", size: 14, bold: true, gap: 20},
+      {text: `Teams: ${(archive.teams || []).length}`},
+      {text: `Players: ${playerCount}`},
+      {text: `Completed games: ${(archive.games || []).length}`},
+      {text: `Goals: ${totalGoals}`},
+      {text: `Points: ${totalPoints}`},
+      {text: `Total team score: ${totalGoals * 6 + totalPoints}`, gap: 24}
+    ];
+
+    (archive.teams || []).forEach((team, teamIndex) => {
+      const teamGames = (archive.games || []).filter(
+        game => game.teamId === team.id
+      );
+      const rows = archiveTeamPlayerRows(archive, team);
+      const goldenBoot = archiveGoldenBoot(archive, team);
+
+      const teamGoals = teamGames.reduce(
+        (sum, game) => sum + Number(game.teamGoals || 0),
+        0
+      );
+      const teamPoints = teamGames.reduce(
+        (sum, game) => sum + Number(game.teamPoints || 0),
+        0
+      );
+      const awardsGiven = teamGames.reduce(
+        (sum, game) =>
+          sum +
+          (game.awards || []).filter(
+            award => award.playerId && award.given !== false
+          ).length,
+        0
+      );
+
+      if (teamIndex > 0) {
+        lines.push({text: "", gap: 14});
+      }
+
+      lines.push({
+        text: `${team.ageGroup || "Team"} - ${team.name}`,
+        size: 16,
+        bold: true,
+        gap: 23
+      });
+
+      const metaParts = [
+        team.ageGroup || "",
+        team.category || "",
+        team.division || ""
+      ].filter(Boolean);
+
+      if (metaParts.length) {
+        lines.push({
+          text: metaParts.join(" | "),
+          size: 10,
+          gap: 17
+        });
+      }
+
+      lines.push({text: `Completed games: ${teamGames.length}`});
+      lines.push({text: `Goals: ${teamGoals}`});
+      lines.push({text: `Points: ${teamPoints}`});
+      lines.push({text: `Team score: ${teamGoals * 6 + teamPoints}`});
+      lines.push({text: `Awards given: ${awardsGiven}`});
+
+      if (goldenBoot.names.length) {
+        lines.push({
+          text:
+            `Golden Boot: ${goldenBoot.names.join(", ")} - ${goldenBoot.goals} goal${goldenBoot.goals === 1 ? "" : "s"}`,
+          gap: 20
+        });
+      } else {
+        lines.push({
+          text: "Golden Boot: No goals recorded",
+          gap: 20
+        });
+      }
+
+      lines.push({
+        text: "Final Roster",
+        size: 13,
+        bold: true,
+        gap: 19
+      });
+
+      if (!rows.length) {
+        lines.push({
+          text: "No players recorded.",
+          gap: 18
+        });
+      } else {
+        rows.forEach(row => {
+          lines.push({
+            text:
+              `${row.membership.number ? `#${row.membership.number} ` : ""}${row.player.name} - ${membershipRoleLabel(row.membership.role)}`,
+            bold: true,
+            gap: 16
+          });
+
+          lines.push({
+            text:
+              `  Career games at season close: ${Number(row.player.careerGamesAtClose || 0)}`
+          });
+          lines.push({
+            text:
+              `  Season: ${row.stats.seasonGames} GP | ${row.stats.goals} G | ${row.stats.points} P | ${row.stats.score} score | ${row.stats.awards} awards`,
+            gap: 15
+          });
+        });
+      }
+
+      lines.push({
+        text: "Completed Games",
+        size: 13,
+        bold: true,
+        gap: 19
+      });
+
+      if (!teamGames.length) {
+        lines.push({
+          text: "No completed games recorded.",
+          gap: 17
+        });
+      } else {
+        const sortedGames = [...teamGames].sort((a, b) => {
+          const dateCompare = String(a.date || "").localeCompare(
+            String(b.date || "")
+          );
+          if (dateCompare) return dateCompare;
+          return Number(a.round || 0) - Number(b.round || 0);
+        });
+
+        sortedGames.forEach(game => {
+          const calculatedScore =
+            Number(game.teamGoals || 0) * 6 +
+            Number(game.teamPoints || 0);
+          const teamScore =
+            game.teamScore === undefined || game.teamScore === null
+              ? calculatedScore
+              : Number(game.teamScore || 0);
+
+          lines.push({
+            text:
+              `Round ${game.round || "-"} - ${formatGameDate(game.date)}`,
+            bold: true,
+            gap: 17
+          });
+
+          lines.push({
+            text:
+              `  Team: ${Number(game.teamGoals || 0)} goals | ${Number(game.teamPoints || 0)} points | Score ${teamScore}`
+          });
+
+          if (game.correctedAt) {
+            lines.push({
+              text:
+                `  Corrected ${new Date(game.correctedAt).toLocaleDateString("en-AU", {day:"numeric", month:"short", year:"numeric"})}`
+            });
+          }
+
+          const playerStats = [...(game.playerStats || [])].sort(
+            (a, b) =>
+              Number(b.score || 0) - Number(a.score || 0) ||
+              String(a.playerName || "").localeCompare(
+                String(b.playerName || "")
+              )
+          );
+
+          if (playerStats.length) {
+            lines.push({
+              text: "  Player scoring:",
+              bold: true
+            });
+
+            playerStats.forEach(stat => {
+              lines.push({
+                text:
+                  `    ${stat.number ? `#${stat.number} ` : ""}${stat.playerName || "Player"} - ${Number(stat.goals || 0)}G ${Number(stat.points || 0)}P - ${Number(stat.score || 0)} pts`
+              });
+            });
+          } else {
+            lines.push({
+              text: "  Player scoring: none recorded"
+            });
+          }
+
+          const rosterSnapshot = gameRosterSnapshot(game);
+          const participants = participantIdsForGame(game);
+          const didNotPlay = rosterSnapshot.filter(
+            player => !participants.has(player.playerId)
+          );
+
+          if (didNotPlay.length) {
+            lines.push({
+              text: "  Did not play:",
+              bold: true
+            });
+            didNotPlay.forEach(player => {
+              lines.push({
+                text:
+                  `    ${player.number ? `#${player.number} ` : ""}${player.playerName}`
+              });
+            });
+          }
+
+          lines.push({
+            text: "  Awards:",
+            bold: true
+          });
+
+          if ((game.awards || []).length) {
+            (game.awards || []).forEach(award => {
+              lines.push({
+                text:
+                  `    ${award.awardName || "Award"} - ${
+                    award.playerId && award.given !== false
+                      ? (award.playerName || "Player")
+                      : "Not given"
+                  }`
+              });
+            });
+          } else {
+            lines.push({
+              text: "    No award records saved"
+            });
+          }
+
+          lines.push({text: "", gap: 10});
+        });
+      }
+    });
+
+    lines.push({text: "", gap: 10});
+    lines.push({
+      text:
+        `Generated by GameDay Crew on ${new Date().toLocaleDateString("en-AU")}`,
+      size: 9
+    });
+
+    return lines;
+  };
+
+  const downloadSeasonArchivePdf = archive => {
+    if (!archive) return;
+
+    const blob = buildSimplePdf(
+      archiveSeasonPdfLines(archive)
+    );
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+
+    const clubSlug = String(
+      archive.clubName || "club"
+    )
+      .replace(/[^a-z0-9]+/gi, "-")
+      .replace(/^-|-$/g, "")
+      .toLowerCase();
+
+    a.href = url;
+    a.download =
+      `${clubSlug}-season-${archive.season}-archive.pdf`;
+
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    setTimeout(
+      () => URL.revokeObjectURL(url),
+      1000
+    );
+  };
+
   const archiveCompletedGamesMarkup = teamGames => {
     if (!teamGames.length) {
       return `
@@ -5701,6 +6002,14 @@ Create a separate player record anyway?`
       "archiveSeasonTitle"
     ).textContent =
       `Season ${archive.season}`;
+
+    const pdfButton = document.getElementById(
+      "archiveSeasonPdfButton"
+    );
+    if (pdfButton) {
+      pdfButton.textContent =
+        `📄 Download Season ${archive.season} PDF`;
+    }
 
     const playerCount = new Set(
       (archive.memberships || []).map(item =>
@@ -5854,6 +6163,20 @@ Create a separate player record anyway?`
     seasonRolloverDraft = null;
     renderClubSeasons();
     showScreen("clubSeasonsScreen");
+  });
+
+  document.querySelector(
+    "[data-export-season-archive-pdf]"
+  )?.addEventListener("click", () => {
+    if (!openSeasonArchiveId) return;
+
+    const archive = getSeasonArchives().find(
+      item => item.id === openSeasonArchiveId
+    );
+
+    if (!archive) return;
+
+    downloadSeasonArchivePdf(archive);
   });
 
   document.querySelector(
