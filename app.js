@@ -83,6 +83,43 @@
 
   const saveTeams = teams => localStorage.setItem(TEAMS_KEY, JSON.stringify(teams));
 
+  const currentClubRecord = () => {
+    try {
+      return JSON.parse(
+        localStorage.getItem("gdc_v2_demo_club") || "{}"
+      );
+    } catch {
+      return {};
+    }
+  };
+
+  const refreshClubDashboardIdentity = () => {
+    const club = currentClubRecord();
+
+    const name = document.getElementById(
+      "dashboardClubName"
+    );
+    const season = document.getElementById(
+      "dashboardSeason"
+    );
+    const logo = document.getElementById(
+      "dashboardClubLogo"
+    );
+
+    if (name && club.name) {
+      name.textContent = club.name;
+    }
+
+    if (season) {
+      season.textContent =
+        `Season ${Number(club.season || 2027)}`;
+    }
+
+    if (logo) {
+      logo.src = club.logo || "logo.png";
+    }
+  };
+
   const teamMeta = team => {
     const bits = [team.ageGroup, team.category];
     if (team.division) bits.push(team.division);
@@ -114,6 +151,8 @@
   };
 
   const renderTeams = () => {
+    refreshClubDashboardIdentity();
+
     const teams = getTeams();
     document.getElementById("teamCountStat").textContent = String(teams.length);
     const allPlayers = (() => { try { return JSON.parse(localStorage.getItem("gdc_v2_demo_players") || "[]"); } catch { return []; } })();
@@ -201,12 +240,15 @@
     if (!ageGroup) return alert("Choose the team's age group.");
     if (!category) return alert("Choose the team category.");
 
+    const activeClub = currentClubRecord();
+
     const team = {
       id: "team_" + Date.now(),
       name,
       ageGroup,
       category,
       division,
+      season: Number(activeClub.season || 2027),
       createdAt: new Date().toISOString()
     };
 
@@ -5508,11 +5550,7 @@ Create a separate player record anyway?`
     managerReviewEditMode = false;
     seasonRolloverDraft = null;
 
-    const seasonLabel =
-      document.getElementById("dashboardSeason");
-    if (seasonLabel) {
-      seasonLabel.textContent = `Season ${nextYear}`;
-    }
+    refreshClubDashboardIdentity();
 
     renderTeams();
     renderClubPeople();
