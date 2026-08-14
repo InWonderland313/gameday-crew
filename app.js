@@ -93,8 +93,38 @@
     }
   };
 
+  const resolvedActiveSeasonYear = () => {
+    const club = currentClubRecord();
+    const clubYear = Number(club.season || 0);
+
+    const activeTeamYears = getTeams()
+      .map(team => Number(team.season || 0))
+      .filter(year => Number.isInteger(year) && year > 0);
+
+    const activeTeamYear = activeTeamYears.length
+      ? Math.max(...activeTeamYears)
+      : 0;
+
+    const resolvedYear =
+      Math.max(clubYear, activeTeamYear) ||
+      new Date().getFullYear();
+
+    if (Number(club.season || 0) !== resolvedYear) {
+      club.season = resolvedYear;
+      club.updatedAt = new Date().toISOString();
+
+      localStorage.setItem(
+        "gdc_v2_demo_club",
+        JSON.stringify(club)
+      );
+    }
+
+    return resolvedYear;
+  };
+
   const refreshClubDashboardIdentity = () => {
     const club = currentClubRecord();
+    const activeSeason = resolvedActiveSeasonYear();
 
     const name = document.getElementById(
       "dashboardClubName"
@@ -112,7 +142,7 @@
 
     if (season) {
       season.textContent =
-        `Season ${Number(club.season || 2027)}`;
+        `Season ${activeSeason}`;
     }
 
     if (logo) {
@@ -248,7 +278,7 @@
       ageGroup,
       category,
       division,
-      season: Number(activeClub.season || 2027),
+      season: resolvedActiveSeasonYear(),
       createdAt: new Date().toISOString()
     };
 
@@ -283,6 +313,7 @@
     });
   });
 
+  resolvedActiveSeasonYear();
   renderTeams();
 
 
@@ -1980,7 +2011,7 @@ Create a separate player record anyway?`
 
     const metaBits = [team.ageGroup, team.category];
     if (team.division) metaBits.push(team.division);
-    metaBits.push(`Season ${club.season || 2027}`);
+    metaBits.push(`Season ${resolvedActiveSeasonYear()}`);
     document.getElementById("teamHomeMeta").textContent = metaBits.filter(Boolean).join(" • ");
 
     const players = playersForTeam(currentTeamId);
@@ -2211,7 +2242,7 @@ Create a separate player record anyway?`
     })();
     const bits = [team.ageGroup, team.category];
     if (team.division) bits.push(team.division);
-    bits.push(`Season ${club.season || 2027}`);
+    bits.push(`Season ${resolvedActiveSeasonYear()}`);
     document.getElementById("managerTeamMeta").textContent = bits.filter(Boolean).join(" • ");
 
     document.getElementById("managerTeamPlayerCount").textContent = String(players.length);
@@ -2418,7 +2449,7 @@ Create a separate player record anyway?`
 
     const bits = [team?.ageGroup, team?.category];
     if (team?.division) bits.push(team.division);
-    bits.push(`Season ${club.season || 2027}`);
+    bits.push(`Season ${resolvedActiveSeasonYear()}`);
     return bits.filter(Boolean).join(" • ");
   };
 
@@ -4698,6 +4729,9 @@ Create a separate player record anyway?`
 
   const createSeasonArchiveSnapshot = () => {
     const club = getClubRecord();
+    const activeSeason = resolvedActiveSeasonYear();
+    club.season = activeSeason;
+
     const teams = deepCopy(getTeams());
     const teamIds = new Set(teams.map(team => team.id));
     const games = deepCopy(
@@ -4743,8 +4777,8 @@ Create a separate player record anyway?`
 
     return {
       id:
-        `season_${Number(club.season || new Date().getFullYear())}_${Date.now()}`,
-      season: Number(club.season || new Date().getFullYear()),
+        `season_${activeSeason}_${Date.now()}`,
+      season: activeSeason,
       clubName: club.name || "Club",
       archivedAt: new Date().toISOString(),
       teams,
@@ -4816,6 +4850,9 @@ Create a separate player record anyway?`
 
   const renderClubSeasons = () => {
     const club = getClubRecord();
+    const activeSeason = resolvedActiveSeasonYear();
+    club.season = activeSeason;
+
     const teams = getTeams();
     const games = currentSeasonGames();
     const playerIds = currentSeasonPlayerIds();
@@ -4825,7 +4862,7 @@ Create a separate player record anyway?`
 
     document.getElementById(
       "seasonAdminCurrentTitle"
-    ).textContent = `Season ${club.season || 2027}`;
+    ).textContent = `Season ${activeSeason}`;
 
     document.getElementById(
       "seasonAdminCurrentMeta"
@@ -4883,9 +4920,8 @@ Create a separate player record anyway?`
 
   const createSeasonRolloverDraft = () => {
     const club = getClubRecord();
-    const currentYear = Number(
-      club.season || new Date().getFullYear()
-    );
+    const currentYear = resolvedActiveSeasonYear();
+    club.season = currentYear;
     const teams = getTeams();
     const memberships = currentSeasonMemberships();
     const players = new Map(
