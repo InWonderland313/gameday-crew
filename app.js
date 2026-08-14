@@ -4898,7 +4898,8 @@ Create a separate player record anyway?`
         careerGames: Number(player.careerGames || 0),
         oldTeamId: primary.teamId,
         oldTeamName: oldTeam?.name || "Team",
-        targetOldTeamId: primary.teamId,
+        targetOldTeamId: oldTeam?.id || primary.teamId,
+        targetTeamTouched: false,
         role: "primary",
         number: primary.number || player.number || "",
         priorExtraMemberships
@@ -5085,7 +5086,19 @@ Create a separate player record anyway?`
       );
 
       if (!targetExists) {
-        row.targetOldTeamId = "";
+        const originalPrimaryStillContinues =
+          activeDraftTeams().some(team =>
+            team.oldTeamId === row.oldTeamId
+          );
+
+        if (
+          !row.targetTeamTouched &&
+          originalPrimaryStillContinues
+        ) {
+          row.targetOldTeamId = row.oldTeamId;
+        } else if (row.targetOldTeamId) {
+          row.targetOldTeamId = "";
+        }
       }
 
       const priorLinks = (row.priorExtraMemberships || []).length
@@ -5142,6 +5155,27 @@ Create a separate player record anyway?`
     );
 
     return seasonRolloverDraft.memberships
+      .map(row => {
+        const currentTargetIsActive =
+          row.targetOldTeamId &&
+          activeIds.has(row.targetOldTeamId);
+
+        if (currentTargetIsActive) {
+          return row;
+        }
+
+        if (
+          !row.targetTeamTouched &&
+          activeIds.has(row.oldTeamId)
+        ) {
+          return {
+            ...row,
+            targetOldTeamId: row.oldTeamId
+          };
+        }
+
+        return row;
+      })
       .filter(row =>
         row.targetOldTeamId &&
         activeIds.has(row.targetOldTeamId)
@@ -5747,6 +5781,13 @@ Create a separate player record anyway?`
 
       row[memberField.dataset.rolloverMemberField] =
         memberField.value;
+
+      if (
+        memberField.dataset.rolloverMemberField ===
+        "targetOldTeamId"
+      ) {
+        row.targetTeamTouched = true;
+      }
 
       renderRolloverSummary();
     }
