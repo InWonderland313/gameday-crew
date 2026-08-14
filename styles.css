@@ -1723,3 +1723,139 @@ input:focus,select:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(244,
     grid-template-columns:1fr
   }
 }
+
+
+/* V2.16.3 archived completed-game history */
+.archive-games-heading{
+  margin-top:18px;
+  padding-top:14px;
+  border-top:1px solid var(--line)
+}
+.archive-games-heading h3{
+  margin:2px 0 2px;
+  color:var(--navy)
+}
+.archive-games-heading small{
+  color:var(--muted)
+}
+.archive-game-list{
+  display:grid;
+  gap:10px;
+  margin-top:10px
+}
+.archive-game-card{
+  padding:12px;
+  border:1px solid var(--line);
+  border-radius:13px;
+  background:#F8F9FB
+}
+.archive-game-top{
+  display:grid;
+  grid-template-columns:58px 1fr auto;
+  gap:11px;
+  align-items:center
+}
+.archive-game-round{
+  display:grid;
+  place-items:center;
+  min-height:52px;
+  padding:6px;
+  border-radius:11px;
+  background:var(--navy);
+  color:white;
+  text-align:center
+}
+.archive-game-round strong{
+  color:var(--gold);
+  font-size:14px
+}
+.archive-game-round small{
+  color:#D8E2EF;
+  font-size:8px
+}
+.archive-game-copy strong{
+  display:block;
+  color:var(--navy);
+  font-size:11px
+}
+.archive-game-copy small{
+  display:block;
+  color:var(--muted);
+  margin-top:3px;
+  font-size:9px
+}
+.archive-game-score{
+  min-width:66px;
+  text-align:right
+}
+.archive-game-score strong{
+  display:block;
+  color:var(--navy);
+  font-size:21px
+}
+.archive-game-score small{
+  color:var(--muted);
+  font-size:8px
+}
+.archive-game-section{
+  margin-top:10px;
+  padding-top:9px;
+  border-top:1px solid var(--line)
+}
+.archive-game-label{
+  display:block;
+  margin-bottom:6px;
+  color:var(--gold-dark);
+  font-size:8px;
+  font-weight:900;
+  letter-spacing:.06em
+}
+.archive-game-player-list,
+.archive-game-awards{
+  display:grid;
+  gap:5px
+}
+.archive-game-player,
+.archive-game-award{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  align-items:center;
+  padding:7px 8px;
+  border-radius:9px;
+  background:white;
+  border:1px solid var(--line);
+  font-size:9px
+}
+.archive-game-player span,
+.archive-game-award span{
+  color:var(--navy)
+}
+.archive-game-player strong,
+.archive-game-award strong{
+  color:var(--navy);
+  text-align:right
+}
+.archive-game-award.not-given strong{
+  color:var(--muted)
+}
+.archive-games-empty{
+  padding:11px;
+  border:1px dashed var(--line);
+  border-radius:11px;
+  color:var(--muted);
+  background:#F8F9FB;
+  font-size:9px
+}
+@media(max-width:620px){
+  .archive-game-top{
+    grid-template-columns:52px 1fr
+  }
+  .archive-game-score{
+    grid-column:1 / -1;
+    text-align:left;
+    display:flex;
+    align-items:baseline;
+    gap:6px
+  }
+}

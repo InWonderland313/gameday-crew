@@ -5525,6 +5525,92 @@ Create a separate player record anyway?`
     showScreen("clubSeasonsScreen");
   };
 
+  const archiveCompletedGamesMarkup = teamGames => {
+    if (!teamGames.length) {
+      return `
+        <div class="archive-games-empty">
+          No completed games were recorded for this team.
+        </div>
+      `;
+    }
+
+    const sortedGames = [...teamGames].sort((a, b) => {
+      const dateCompare = String(a.date || "").localeCompare(
+        String(b.date || "")
+      );
+      if (dateCompare) return dateCompare;
+      return Number(a.round || 0) - Number(b.round || 0);
+    });
+
+    return sortedGames.map(game => {
+      const playerLines = (game.playerStats || [])
+        .slice()
+        .sort((a, b) =>
+          Number(b.score || 0) - Number(a.score || 0) ||
+          String(a.playerName || "").localeCompare(
+            String(b.playerName || "")
+          )
+        )
+        .map(stat => `
+          <div class="archive-game-player">
+            <span>${stat.number ? `#${stat.number} ` : ""}${stat.playerName || "Player"}</span>
+            <strong>${Number(stat.goals || 0)}G • ${Number(stat.points || 0)}P • ${Number(stat.score || 0)} pts</strong>
+          </div>
+        `).join("");
+
+      const awardLines = (game.awards || []).length
+        ? (game.awards || []).map(award => `
+            <div class="archive-game-award ${award.playerId && award.given !== false ? "given" : "not-given"}">
+              <span>🏆 ${award.awardName || "Award"}</span>
+              <strong>${award.playerId && award.given !== false ? (award.playerName || "Player") : "Not given"}</strong>
+            </div>
+          `).join("")
+        : `
+          <div class="archive-game-award not-given">
+            <span>🏆 Awards</span>
+            <strong>No award records saved</strong>
+          </div>
+        `;
+
+      const correctedText = game.correctedAt
+        ? ` • Corrected ${new Date(game.correctedAt).toLocaleDateString("en-AU", {day:"numeric", month:"short", year:"numeric"})}`
+        : "";
+
+      return `
+        <article class="archive-game-card">
+          <div class="archive-game-top">
+            <div class="archive-game-round">
+              <strong>R${game.round || "—"}</strong>
+              <small>${game.date ? new Date(game.date + "T12:00:00").toLocaleDateString("en-AU", {day:"numeric", month:"short"}) : "—"}</small>
+            </div>
+
+            <div class="archive-game-copy">
+              <strong>${Number(game.teamGoals || 0)} goal${Number(game.teamGoals || 0) === 1 ? "" : "s"} • ${Number(game.teamPoints || 0)} point${Number(game.teamPoints || 0) === 1 ? "" : "s"}</strong>
+              <small>${formatGameDate(game.date)}${correctedText}</small>
+            </div>
+
+            <div class="archive-game-score">
+              <strong>${Number(game.teamScore ?? (Number(game.teamGoals || 0) * 6 + Number(game.teamPoints || 0)))}</strong>
+              <small>team score</small>
+            </div>
+          </div>
+
+          ${playerLines ? `
+            <div class="archive-game-section">
+              <span class="archive-game-label">PLAYER SCORING</span>
+              <div class="archive-game-player-list">${playerLines}</div>
+            </div>
+          ` : ""}
+
+          <div class="archive-game-section">
+            <span class="archive-game-label">AWARDS</span>
+            <div class="archive-game-awards">${awardLines}</div>
+          </div>
+        </article>
+      `;
+    }).join("");
+  };
+
   const renderSeasonArchiveDetail = archiveId => {
     const archive = getSeasonArchives().find(
       item => item.id === archiveId
@@ -5655,6 +5741,16 @@ Create a separate player record anyway?`
                   `).join("")
                   : `<div class="soft-empty"><span>👥</span><strong>No players recorded</strong></div>`
               }
+            </div>
+
+            <div class="archive-games-heading">
+              <p class="eyebrow">READ-ONLY GAME HISTORY</p>
+              <h3>Completed games</h3>
+              <small>Scores, player scoring and award outcomes from Season ${archive.season}.</small>
+            </div>
+
+            <div class="archive-game-list">
+              ${archiveCompletedGamesMarkup(teamGames)}
             </div>
           </article>
         `;
