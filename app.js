@@ -5870,11 +5870,905 @@ Create a separate player record anyway?`
     return lines;
   };
 
+  const buildDesignedSeasonArchivePdf = archive => {
+    const PAGE_W = 595;
+    const PAGE_H = 842;
+    const MARGIN = 38;
+    const CONTENT_W = PAGE_W - MARGIN * 2;
+    const TOP = 44;
+    const BOTTOM = 42;
+
+    const NAVY = [0.055, 0.176, 0.361];
+    const NAVY_2 = [0.075, 0.231, 0.451];
+    const GOLD = [0.965, 0.694, 0.0];
+    const GOLD_SOFT = [1.0, 0.975, 0.88];
+    const INK = [0.07, 0.12, 0.19];
+    const MUTED = [0.34, 0.40, 0.48];
+    const LINE = [0.84, 0.87, 0.91];
+    const SOFT = [0.965, 0.972, 0.983];
+    const WHITE = [1, 1, 1];
+    const GREEN_SOFT = [0.93, 0.98, 0.95];
+    const GREEN = [0.04, 0.47, 0.25];
+
+    const ascii = value => String(value ?? "")
+      .normalize("NFKD")
+      .replace(/[^\x20-\x7E]/g, ch => {
+        if ("–—−".includes(ch)) return "-";
+        if ("‘’‚‛".includes(ch)) return "'";
+        if ("“”„‟".includes(ch)) return '"';
+        return "";
+      });
+
+    const esc = value => ascii(value)
+      .replace(/\\/g, "\\\\")
+      .replace(/\(/g, "\\(")
+      .replace(/\)/g, "\\)");
+
+    const fmtDate = value => {
+      if (!value) return "-";
+      const d = new Date(
+        String(value).length === 10
+          ? `${value}T12:00:00`
+          : value
+      );
+      if (Number.isNaN(d.getTime())) return ascii(value);
+      return d.toLocaleDateString("en-AU", {
+        day: "numeric",
+        month: "short",
+        year: "numeric"
+      });
+    };
+
+    const membershipLabel = role => {
+      if (role === "primary") return "Primary";
+      if (role === "playing_up") return "Playing Up";
+      return "Additional";
+    };
+
+    const approxWidth = (text, size, bold = false) =>
+      ascii(text).length * size * (bold ? 0.54 : 0.50);
+
+    const trimToWidth = (text, maxWidth, size, bold = false) => {
+      const raw = ascii(text);
+      if (approxWidth(raw, size, bold) <= maxWidth) return raw;
+      let result = raw;
+      while (
+        result.length > 1 &&
+        approxWidth(`${result}...`, size, bold) > maxWidth
+      ) {
+        result = result.slice(0, -1);
+      }
+      return `${result}...`;
+    };
+
+    const wrapText = (text, maxWidth, size, bold = false) => {
+      const words = ascii(text).split(/\s+/).filter(Boolean);
+      if (!words.length) return [""];
+      const lines = [];
+      let line = "";
+
+      words.forEach(word => {
+        const candidate = line ? `${line} ${word}` : word;
+        if (approxWidth(candidate, size, bold) <= maxWidth) {
+          line = candidate;
+        } else {
+          if (line) lines.push(line);
+          line = word;
+
+          while (approxWidth(line, size, bold) > maxWidth && line.length > 2) {
+            let cut = line.length - 1;
+            while (
+              cut > 1 &&
+              approxWidth(`${line.slice(0, cut)}-`, size, bold) > maxWidth
+            ) {
+              cut -= 1;
+            }
+            lines.push(`${line.slice(0, cut)}-`);
+            line = line.slice(cut);
+          }
+        }
+      });
+
+      if (line) lines.push(line);
+      return lines;
+    };
+
+    const archiveGames = archive.games || [];
+    const allMemberships = archive.memberships || [];
+    const archivedPlayers = new Map(
+      (archive.players || []).map(player => [player.id, player])
+    );
+
+    const playerStatsForTeam = (playerId, teamId) => {
+      let seasonGames = 0;
+      let goals = 0;
+      let points = 0;
+      let awards = 0;
+
+      archiveGames
+        .filter(game => game.teamId === teamId)
+        .forEach(game => {
+          const participants = new Set(
+            Array.isArray(game.participantIds)
+              ? game.participantIds
+              : (game.playerStats || []).map(stat => stat.playerId)
+          );
+
+          if (participants.has(playerId)) {
+            seasonGames += 1;
+          }
+
+          const stat = (game.playerStats || []).find(
+            item => item.playerId === playerId
+          );
+          if (stat && participants.has(playerId)) {
+            goals += Number(stat.goals || 0);
+            points += Number(stat.points || 0);
+          }
+
+          awards += (game.awards || []).filter(
+            award =>
+              award.playerId === playerId &&
+              award.given !== false
+          ).length;
+        });
+
+      return {
+        seasonGames,
+        goals,
+        points,
+        score: goals * 6 + points,
+        awards
+      };
+    };
+
+    const teamRows = team => {
+      return allMemberships
+        .filter(item => item.teamId === team.id)
+        .map(membership => {
+          const player = archivedPlayers.get(membership.playerId);
+          if (!player) return null;
+          return {
+            membership,
+            player,
+            stats: playerStatsForTeam(player.id, team.id)
+          };
+        })
+        .filter(Boolean)
+        .sort((a, b) =>
+          Number(a.membership.number || 999) -
+            Number(b.membership.number || 999) ||
+          String(a.player.name || "").localeCompare(
+            String(b.player.name || "")
+          )
+        );
+    };
+
+    const goldenBootForTeam = team => {
+      const rows = teamRows(team);
+      let high = 0;
+      let names = [];
+
+      rows.forEach(row => {
+        if (row.stats.goals > high) {
+          high = row.stats.goals;
+          names = [row.player.name];
+        } else if (row.stats.goals === high && high > 0) {
+          names.push(row.player.name);
+        }
+      });
+
+      return {goals: high, names};
+    };
+
+    const pages = [];
+    let commands = [];
+    let cursorY = PAGE_H - TOP;
+    let pageNo = 0;
+
+    const rgb = colour =>
+      `${colour[0]} ${colour[1]} ${colour[2]}`;
+
+    const yPdf = (topY, height = 0) =>
+      PAGE_H - topY - height;
+
+    const rect = (
+      x,
+      topY,
+      w,
+      h,
+      fill,
+      stroke = null,
+      lineWidth = 1
+    ) => {
+      commands.push("q");
+      if (fill) {
+        commands.push(`${rgb(fill)} rg`);
+      }
+      if (stroke) {
+        commands.push(`${rgb(stroke)} RG ${lineWidth} w`);
+      }
+
+      const op = fill && stroke
+        ? "B"
+        : fill
+          ? "f"
+          : "S";
+
+      commands.push(
+        `${x} ${yPdf(topY, h)} ${w} ${h} re ${op}`
+      );
+      commands.push("Q");
+    };
+
+    const line = (x1, topY1, x2, topY2, colour = LINE, width = 1) => {
+      commands.push(
+        `q ${rgb(colour)} RG ${width} w ${x1} ${PAGE_H - topY1} m ${x2} ${PAGE_H - topY2} l S Q`
+      );
+    };
+
+    const text = (
+      value,
+      x,
+      topY,
+      size = 10,
+      bold = false,
+      colour = INK
+    ) => {
+      const clean = esc(value);
+      if (!clean) return;
+      commands.push(
+        `BT /${bold ? "F2" : "F1"} ${size} Tf ${rgb(colour)} rg ${x} ${PAGE_H - topY - size} Td (${clean}) Tj ET`
+      );
+    };
+
+    const wrapped = (
+      value,
+      x,
+      topY,
+      maxWidth,
+      size = 10,
+      bold = false,
+      colour = INK,
+      leading = null
+    ) => {
+      const lines = wrapText(value, maxWidth, size, bold);
+      const step = leading || size + 3;
+      lines.forEach((part, index) => {
+        text(part, x, topY + index * step, size, bold, colour);
+      });
+      return lines.length * step;
+    };
+
+    const footer = () => {
+      line(MARGIN, PAGE_H - 28, PAGE_W - MARGIN, PAGE_H - 28, LINE, 0.7);
+      text(
+        `GameDay Crew - Season ${archive.season} Archive`,
+        MARGIN,
+        PAGE_H - 21,
+        7.5,
+        false,
+        MUTED
+      );
+      text(
+        `Page ${pageNo}`,
+        PAGE_W - MARGIN - 34,
+        PAGE_H - 21,
+        7.5,
+        false,
+        MUTED
+      );
+    };
+
+    const newPage = (sectionLabel = null) => {
+      if (commands.length) {
+        footer();
+        pages.push(commands);
+      }
+
+      commands = [];
+      pageNo += 1;
+      cursorY = PAGE_H - TOP;
+
+      rect(0, 0, PAGE_W, 66, NAVY);
+      rect(0, 66, PAGE_W, 4, GOLD);
+
+      text(
+        ascii(archive.clubName || "Club"),
+        MARGIN,
+        18,
+        17,
+        true,
+        WHITE
+      );
+      text(
+        `SEASON ${archive.season} ARCHIVE`,
+        MARGIN,
+        41,
+        8.5,
+        true,
+        GOLD
+      );
+
+      if (sectionLabel) {
+        text(
+          sectionLabel.toUpperCase(),
+          PAGE_W - MARGIN - Math.min(
+            210,
+            approxWidth(sectionLabel.toUpperCase(), 8.5, false)
+          ),
+          41,
+          8.5,
+          true,
+          WHITE
+        );
+      }
+
+      cursorY = 88;
+    };
+
+    const ensure = height => {
+      if (cursorY + height > PAGE_H - BOTTOM - 30) {
+        newPage();
+      }
+    };
+
+    const sectionTitle = (label, title) => {
+      ensure(42);
+      text(label.toUpperCase(), MARGIN, cursorY, 8, true, GOLD);
+      text(title, MARGIN, cursorY + 14, 15, true, NAVY);
+      cursorY += 38;
+    };
+
+    const metricCard = (x, topY, w, label, value) => {
+      rect(x, topY, w, 54, SOFT, LINE, 0.8);
+      text(String(value), x + 12, topY + 11, 17, true, NAVY);
+      text(label, x + 12, topY + 33, 8, false, MUTED);
+    };
+
+    const drawRosterTable = (rows, team) => {
+      const cols = [
+        {label:"#", w:26},
+        {label:"PLAYER", w:153},
+        {label:"ROLE", w:82},
+        {label:"CAREER", w:52},
+        {label:"GP", w:34},
+        {label:"G", w:30},
+        {label:"P", w:30},
+        {label:"AWD", w:40}
+      ];
+
+      const total = cols.reduce((sum, col) => sum + col.w, 0);
+      const scale = CONTENT_W / total;
+      cols.forEach(col => col.w *= scale);
+
+      const headerH = 24;
+      const rowH = 27;
+
+      const header = () => {
+        ensure(headerH + rowH);
+        rect(MARGIN, cursorY, CONTENT_W, headerH, NAVY_2);
+        let x = MARGIN;
+        cols.forEach(col => {
+          text(col.label, x + 5, cursorY + 7, 7.3, true, WHITE);
+          x += col.w;
+        });
+        cursorY += headerH;
+      };
+
+      header();
+
+      if (!rows.length) {
+        rect(MARGIN, cursorY, CONTENT_W, 31, WHITE, LINE, 0.7);
+        text("No players recorded.", MARGIN + 8, cursorY + 10, 9, false, MUTED);
+        cursorY += 31;
+        return;
+      }
+
+      rows.forEach((row, index) => {
+        if (cursorY + rowH > PAGE_H - BOTTOM - 32) {
+          newPage(`${team.ageGroup || ""} ${team.name}`);
+          sectionTitle("FINAL ROSTER", `${team.name} - continued`);
+          header();
+        }
+
+        rect(
+          MARGIN,
+          cursorY,
+          CONTENT_W,
+          rowH,
+          index % 2 ? WHITE : SOFT,
+          LINE,
+          0.45
+        );
+
+        const values = [
+          row.membership.number || "-",
+          row.player.name || "Player",
+          membershipLabel(row.membership.role),
+          Number(row.player.careerGamesAtClose || 0),
+          row.stats.seasonGames,
+          row.stats.goals,
+          row.stats.points,
+          row.stats.awards
+        ];
+
+        let x = MARGIN;
+        values.forEach((value, colIndex) => {
+          const col = cols[colIndex];
+          const isName = colIndex === 1;
+          const shown = trimToWidth(
+            String(value),
+            col.w - 10,
+            isName ? 8.5 : 8,
+            isName
+          );
+          text(
+            shown,
+            x + 5,
+            cursorY + 8,
+            isName ? 8.5 : 8,
+            isName,
+            isName ? NAVY : INK
+          );
+          x += col.w;
+        });
+
+        cursorY += rowH;
+      });
+    };
+
+    const drawGameCard = (game, team) => {
+      const playerStats = [...(game.playerStats || [])]
+        .filter(stat => {
+          const ids = new Set(
+            Array.isArray(game.participantIds)
+              ? game.participantIds
+              : (game.playerStats || []).map(item => item.playerId)
+          );
+          return ids.has(stat.playerId);
+        })
+        .sort((a, b) =>
+          Number(b.score || 0) - Number(a.score || 0)
+        );
+
+      const awards = game.awards || [];
+      const roster = game.rosterSnapshot || [];
+      const participants = new Set(
+        Array.isArray(game.participantIds)
+          ? game.participantIds
+          : playerStats.map(stat => stat.playerId)
+      );
+      const didNotPlay = roster.filter(
+        player => !participants.has(player.playerId)
+      );
+
+      const bodyLines =
+        Math.max(1, playerStats.length) +
+        Math.max(1, awards.length) +
+        (didNotPlay.length ? didNotPlay.length + 1 : 0);
+
+      const estimated = 78 + bodyLines * 17;
+
+      if (cursorY + Math.min(estimated, 250) > PAGE_H - BOTTOM - 32) {
+        newPage(`${team.ageGroup || ""} ${team.name}`);
+        sectionTitle("GAME HISTORY", `${team.name} - continued`);
+      }
+
+      const goals = Number(game.teamGoals || 0);
+      const points = Number(game.teamPoints || 0);
+      const score =
+        game.teamScore === undefined || game.teamScore === null
+          ? goals * 6 + points
+          : Number(game.teamScore || 0);
+
+      const cardTop = cursorY;
+      const headerH = 54;
+
+      rect(MARGIN, cardTop, CONTENT_W, headerH, SOFT, LINE, 0.8);
+      rect(MARGIN, cardTop, 58, headerH, NAVY);
+      text(
+        `R${game.round || "-"}`,
+        MARGIN + 14,
+        cardTop + 9,
+        15,
+        true,
+        GOLD
+      );
+      text(
+        fmtDate(game.date).split(" ").slice(0, 2).join(" "),
+        MARGIN + 11,
+        cardTop + 32,
+        7.5,
+        false,
+        WHITE
+      );
+
+      text(
+        `${goals} goal${goals === 1 ? "" : "s"} - ${points} point${points === 1 ? "" : "s"}`,
+        MARGIN + 72,
+        cardTop + 10,
+        11,
+        true,
+        NAVY
+      );
+      text(
+        fmtDate(game.date),
+        MARGIN + 72,
+        cardTop + 29,
+        8,
+        false,
+        MUTED
+      );
+
+      if (game.correctedAt) {
+        text(
+          `Corrected ${fmtDate(game.correctedAt)}`,
+          MARGIN + 205,
+          cardTop + 29,
+          8,
+          false,
+          MUTED
+        );
+      }
+
+      text(
+        String(score),
+        PAGE_W - MARGIN - 34,
+        cardTop + 7,
+        20,
+        true,
+        NAVY
+      );
+      text(
+        "SCORE",
+        PAGE_W - MARGIN - 35,
+        cardTop + 33,
+        7,
+        true,
+        MUTED
+      );
+
+      cursorY += headerH + 8;
+
+      text("PLAYER SCORING", MARGIN, cursorY, 7.5, true, GOLD);
+      cursorY += 14;
+
+      if (!playerStats.length) {
+        text("No player scoring recorded.", MARGIN + 8, cursorY, 8.5, false, MUTED);
+        cursorY += 18;
+      } else {
+        playerStats.forEach(stat => {
+          ensure(19);
+          rect(MARGIN, cursorY, CONTENT_W, 18, WHITE, LINE, 0.45);
+          text(
+            `${stat.number ? `#${stat.number} ` : ""}${stat.playerName || "Player"}`,
+            MARGIN + 7,
+            cursorY + 5,
+            8.3,
+            true,
+            NAVY
+          );
+          text(
+            `${Number(stat.goals || 0)}G  ${Number(stat.points || 0)}P  |  ${Number(stat.score || 0)} pts`,
+            PAGE_W - MARGIN - 118,
+            cursorY + 5,
+            8.3,
+            true,
+            INK
+          );
+          cursorY += 18;
+        });
+      }
+
+      if (didNotPlay.length) {
+        cursorY += 5;
+        text("DID NOT PLAY", MARGIN, cursorY, 7.5, true, GOLD);
+        cursorY += 14;
+        didNotPlay.forEach(player => {
+          ensure(17);
+          text(
+            `${player.number ? `#${player.number} ` : ""}${player.playerName || "Player"}`,
+            MARGIN + 8,
+            cursorY,
+            8.3,
+            false,
+            MUTED
+          );
+          cursorY += 16;
+        });
+      }
+
+      cursorY += 5;
+      text("AWARDS", MARGIN, cursorY, 7.5, true, GOLD);
+      cursorY += 14;
+
+      if (!awards.length) {
+        text("No award records saved.", MARGIN + 8, cursorY, 8.5, false, MUTED);
+        cursorY += 18;
+      } else {
+        awards.forEach(award => {
+          ensure(19);
+          const given =
+            Boolean(award.playerId) && award.given !== false;
+
+          rect(
+            MARGIN,
+            cursorY,
+            CONTENT_W,
+            18,
+            given ? GREEN_SOFT : WHITE,
+            LINE,
+            0.45
+          );
+          text(
+            award.awardName || "Award",
+            MARGIN + 7,
+            cursorY + 5,
+            8.3,
+            true,
+            NAVY
+          );
+          text(
+            given
+              ? (award.playerName || "Player")
+              : "Not given",
+            PAGE_W - MARGIN - 120,
+            cursorY + 5,
+            8.3,
+            given,
+            given ? GREEN : MUTED
+          );
+          cursorY += 18;
+        });
+      }
+
+      cursorY += 12;
+    };
+
+    // PAGE 1
+    newPage("Season Summary");
+
+    text(
+      `Season ${archive.season} Archive`,
+      MARGIN,
+      cursorY,
+      23,
+      true,
+      NAVY
+    );
+    cursorY += 31;
+
+    text(
+      `Read-only club season record - archived ${fmtDate(archive.archivedAt)}`,
+      MARGIN,
+      cursorY,
+      9.5,
+      false,
+      MUTED
+    );
+    cursorY += 28;
+
+    const uniquePlayers = new Set(
+      allMemberships.map(item => item.playerId)
+    ).size;
+    const totalGoals = archiveGames.reduce(
+      (sum, game) => sum + Number(game.teamGoals || 0),
+      0
+    );
+    const totalPoints = archiveGames.reduce(
+      (sum, game) => sum + Number(game.teamPoints || 0),
+      0
+    );
+
+    const gap = 8;
+    const cardW = (CONTENT_W - gap * 3) / 4;
+    metricCard(MARGIN, cursorY, cardW, "TEAMS", (archive.teams || []).length);
+    metricCard(MARGIN + cardW + gap, cursorY, cardW, "PLAYERS", uniquePlayers);
+    metricCard(MARGIN + (cardW + gap) * 2, cursorY, cardW, "GAMES", archiveGames.length);
+    metricCard(MARGIN + (cardW + gap) * 3, cursorY, cardW, "TOTAL SCORE", totalGoals * 6 + totalPoints);
+    cursorY += 74;
+
+    (archive.teams || []).forEach((team, teamIndex) => {
+      const games = archiveGames.filter(
+        game => game.teamId === team.id
+      );
+      const rows = teamRows(team);
+      const teamGoals = games.reduce(
+        (sum, game) => sum + Number(game.teamGoals || 0),
+        0
+      );
+      const teamPoints = games.reduce(
+        (sum, game) => sum + Number(game.teamPoints || 0),
+        0
+      );
+      const awardsGiven = games.reduce(
+        (sum, game) =>
+          sum +
+          (game.awards || []).filter(
+            award =>
+              award.playerId &&
+              award.given !== false
+          ).length,
+        0
+      );
+      const golden = goldenBootForTeam(team);
+
+      if (cursorY + 180 > PAGE_H - BOTTOM - 30) {
+        newPage(`${team.ageGroup || ""} ${team.name}`);
+      }
+
+      rect(MARGIN, cursorY, CONTENT_W, 52, NAVY, null);
+      rect(MARGIN, cursorY, 66, 52, NAVY_2, null);
+      text(
+        team.ageGroup || "TEAM",
+        MARGIN + 13,
+        cursorY + 12,
+        14,
+        true,
+        GOLD
+      );
+      text(
+        team.name,
+        MARGIN + 80,
+        cursorY + 9,
+        15,
+        true,
+        WHITE
+      );
+
+      const meta = [
+        team.ageGroup || "",
+        team.category || "",
+        team.division || ""
+      ].filter(Boolean).join(" | ");
+
+      text(
+        meta,
+        MARGIN + 80,
+        cursorY + 30,
+        8,
+        false,
+        [0.83, 0.88, 0.94]
+      );
+      cursorY += 65;
+
+      const smallGap = 7;
+      const smallW = (CONTENT_W - smallGap * 4) / 5;
+      metricCard(MARGIN, cursorY, smallW, "GAMES", games.length);
+      metricCard(MARGIN + (smallW + smallGap), cursorY, smallW, "GOALS", teamGoals);
+      metricCard(MARGIN + (smallW + smallGap) * 2, cursorY, smallW, "POINTS", teamPoints);
+      metricCard(MARGIN + (smallW + smallGap) * 3, cursorY, smallW, "SCORE", teamGoals * 6 + teamPoints);
+      metricCard(MARGIN + (smallW + smallGap) * 4, cursorY, smallW, "AWARDS", awardsGiven);
+      cursorY += 66;
+
+      const goldenText = golden.names.length
+        ? `${golden.names.join(", ")} - ${golden.goals} goal${golden.goals === 1 ? "" : "s"}`
+        : "No goals recorded";
+
+      rect(MARGIN, cursorY, CONTENT_W, 33, GOLD_SOFT, GOLD, 0.7);
+      text("GOLDEN BOOT", MARGIN + 10, cursorY + 9, 7.5, true, GOLD);
+      text(
+        trimToWidth(goldenText, CONTENT_W - 112, 9.2, true),
+        MARGIN + 104,
+        cursorY + 8,
+        9.2,
+        true,
+        NAVY
+      );
+      cursorY += 48;
+
+      sectionTitle("FINAL ROSTER", "Player totals");
+      drawRosterTable(rows, team);
+      cursorY += 18;
+
+      sectionTitle("READ-ONLY GAME HISTORY", "Completed games");
+
+      if (!games.length) {
+        rect(MARGIN, cursorY, CONTENT_W, 36, SOFT, LINE, 0.7);
+        text(
+          "No completed games recorded for this team.",
+          MARGIN + 10,
+          cursorY + 11,
+          9,
+          false,
+          MUTED
+        );
+        cursorY += 52;
+      } else {
+        [...games]
+          .sort((a, b) => {
+            const dateCompare = String(a.date || "").localeCompare(String(b.date || ""));
+            if (dateCompare) return dateCompare;
+            return Number(a.round || 0) - Number(b.round || 0);
+          })
+          .forEach(game => drawGameCard(game, team));
+      }
+
+      cursorY += teamIndex === (archive.teams || []).length - 1 ? 0 : 10;
+    });
+
+    ensure(32);
+    text(
+      `Generated by GameDay Crew on ${new Date().toLocaleDateString("en-AU")}`,
+      MARGIN,
+      cursorY,
+      8,
+      false,
+      MUTED
+    );
+
+    footer();
+    pages.push(commands);
+
+    // Build the PDF objects.
+    const objects = [];
+    const addObject = body => {
+      objects.push(body);
+      return objects.length;
+    };
+
+    const catalogId = addObject("");
+    const pagesId = addObject("");
+    const fontRegularId = addObject(
+      "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"
+    );
+    const fontBoldId = addObject(
+      "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>"
+    );
+
+    const pageIds = [];
+
+    pages.forEach(pageCommands => {
+      const stream = pageCommands.join("\n") + "\n";
+      const contentId = addObject(
+        `<< /Length ${stream.length} >>\nstream\n${stream}endstream`
+      );
+
+      const pageId = addObject(
+        `<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 ${PAGE_W} ${PAGE_H}] ` +
+        `/Resources << /Font << /F1 ${fontRegularId} 0 R /F2 ${fontBoldId} 0 R >> >> ` +
+        `/Contents ${contentId} 0 R >>`
+      );
+
+      pageIds.push(pageId);
+    });
+
+    objects[catalogId - 1] =
+      `<< /Type /Catalog /Pages ${pagesId} 0 R >>`;
+    objects[pagesId - 1] =
+      `<< /Type /Pages /Kids [${pageIds.map(id => `${id} 0 R`).join(" ")}] /Count ${pageIds.length} >>`;
+
+    let pdf = "%PDF-1.4\n";
+    const offsets = [0];
+
+    objects.forEach((body, index) => {
+      offsets[index + 1] = pdf.length;
+      pdf += `${index + 1} 0 obj\n${body}\nendobj\n`;
+    });
+
+    const xrefOffset = pdf.length;
+    pdf += `xref\n0 ${objects.length + 1}\n`;
+    pdf += "0000000000 65535 f \n";
+
+    for (let i = 1; i <= objects.length; i += 1) {
+      pdf += `${String(offsets[i]).padStart(10, "0")} 00000 n \n`;
+    }
+
+    pdf +=
+      `trailer\n<< /Size ${objects.length + 1} /Root ${catalogId} 0 R >>\n` +
+      `startxref\n${xrefOffset}\n%%EOF`;
+
+    return new Blob([pdf], {
+      type: "application/pdf"
+    });
+  };
+
   const downloadSeasonArchivePdf = archive => {
     if (!archive) return;
 
-    const blob = buildSimplePdf(
-      archiveSeasonPdfLines(archive)
+    const blob = buildDesignedSeasonArchivePdf(
+      archive
     );
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
