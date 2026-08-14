@@ -205,6 +205,173 @@
   </nav>
 </section>
 
+
+<section id="clubSeasonsScreen" class="screen">
+  <header class="topbar">
+    <button class="icon-btn" data-back-seasons-dashboard aria-label="Back">←</button>
+    <div>
+      <p class="eyebrow">CLUB ADMIN</p>
+      <h2>Club & Seasons</h2>
+    </div>
+  </header>
+
+  <div class="content dashboard-content">
+    <section class="season-current-card">
+      <div>
+        <p class="eyebrow">CURRENT SEASON</p>
+        <h1 id="seasonAdminCurrentTitle">Season 2027</h1>
+        <p id="seasonAdminCurrentMeta" class="muted">Your active club season.</p>
+      </div>
+
+      <div class="season-admin-stats">
+        <div><strong id="seasonAdminTeamCount">0</strong><small>Teams</small></div>
+        <div><strong id="seasonAdminPlayerCount">0</strong><small>Players</small></div>
+        <div><strong id="seasonAdminGameCount">0</strong><small>Games</small></div>
+      </div>
+
+      <button class="btn btn-primary full-width" data-open-season-rollover>
+        Set Up Next Season
+      </button>
+    </section>
+
+    <section class="dashboard-section">
+      <div class="section-heading-row">
+        <div>
+          <p class="eyebrow">SEASON HISTORY</p>
+          <h2 class="section-title">Previous seasons</h2>
+        </div>
+      </div>
+
+      <div id="seasonArchiveEmpty" class="soft-empty">
+        <span>📚</span>
+        <strong>No previous seasons yet</strong>
+        <small>Your completed season will appear here after the first rollover.</small>
+      </div>
+
+      <div id="seasonArchiveList" class="season-archive-list"></div>
+    </section>
+  </div>
+
+  <nav class="bottom-nav">
+    <button class="nav-item" data-club-nav="home"><span>⌂</span><small>Home</small></button>
+    <button class="nav-item" data-club-nav="teams"><span>👥</span><small>Teams</small></button>
+    <button class="nav-item" data-club-nav="people"><span>👤</span><small>People</small></button>
+    <button class="nav-item nav-active" data-club-nav="club"><span>⚙</span><small>Club</small></button>
+  </nav>
+</section>
+
+<section id="seasonRolloverScreen" class="screen">
+  <header class="topbar">
+    <button class="icon-btn" data-back-season-admin aria-label="Back">←</button>
+    <div>
+      <p class="eyebrow">SEASON ROLLOVER</p>
+      <h2 id="rolloverHeaderTitle">Set Up Next Season</h2>
+    </div>
+  </header>
+
+  <div class="content dashboard-content">
+    <div class="season-rollover-intro">
+      <div class="season-rollover-icon">📅</div>
+      <div>
+        <p class="eyebrow">KEEP HISTORY. START CLEAN.</p>
+        <h1 id="rolloverSeasonTitle">2027 → 2028</h1>
+        <p class="muted">
+          The current season will become read-only history. Career games continue,
+          while the new season starts with zero games, goals, points and awards.
+        </p>
+      </div>
+    </div>
+
+    <div id="rolloverLiveWarning" class="attention-card warning-card hidden">
+      <span class="attention-icon">!</span>
+      <div>
+        <strong>A live game is still in progress</strong>
+        <small>Finish or clear the live game before rolling the season forward.</small>
+      </div>
+    </div>
+
+    <section class="rollover-section">
+      <div class="section-heading-row">
+        <div>
+          <p class="eyebrow">STEP 1</p>
+          <h2 class="section-title">New season</h2>
+        </div>
+      </div>
+
+      <label>Season year
+        <input id="rolloverYearInput" type="number" min="2020" max="2100">
+      </label>
+    </section>
+
+    <section class="rollover-section">
+      <div class="section-heading-row">
+        <div>
+          <p class="eyebrow">STEP 2</p>
+          <h2 class="section-title">Teams moving forward</h2>
+          <p class="muted">We suggest the next age group, but you choose the correct team for your competition.</p>
+        </div>
+      </div>
+
+      <div id="rolloverTeamsList" class="rollover-team-list"></div>
+    </section>
+
+    <section class="rollover-section">
+      <div class="section-heading-row">
+        <div>
+          <p class="eyebrow">STEP 3</p>
+          <h2 class="section-title">Players & team memberships</h2>
+          <p class="muted">
+            Keep, move or stop each membership. Multi-team players can continue on more than one team.
+          </p>
+        </div>
+      </div>
+
+      <div class="membership-key">
+        <span class="player-membership-tag primary">Primary Team</span>
+        <span class="player-membership-tag playing-up">Playing Up</span>
+        <span class="player-membership-tag additional">Additional Team</span>
+      </div>
+
+      <div id="rolloverMembershipsList" class="rollover-membership-list"></div>
+    </section>
+
+    <section class="rollover-section rollover-finish-card">
+      <div>
+        <p class="eyebrow">FINAL CHECK</p>
+        <h2 id="rolloverSummaryHeading">Ready to create the new season</h2>
+        <p id="rolloverSummaryText" class="muted"></p>
+      </div>
+
+      <div class="season-safety-note">
+        <strong>What stays safe?</strong>
+        <span>
+          Completed games, season stats, award history and Golden Boot are archived.
+          Player career games are never reset.
+        </span>
+      </div>
+
+      <button id="rolloverCreateButton" class="btn btn-primary full-width" data-complete-season-rollover>
+        Archive Current Season & Start Next Season
+      </button>
+    </section>
+  </div>
+</section>
+
+<section id="seasonArchiveDetailScreen" class="screen">
+  <header class="topbar">
+    <button class="icon-btn" data-back-season-archive-list aria-label="Back">←</button>
+    <div>
+      <p class="eyebrow">PREVIOUS SEASON</p>
+      <h2 id="archiveSeasonTitle">Season</h2>
+    </div>
+  </header>
+
+  <div class="content dashboard-content">
+    <div id="archiveSeasonSummary" class="season-archive-summary"></div>
+    <div id="archiveSeasonTeams" class="archive-team-list"></div>
+  </div>
+</section>
+
 <section id="createTeamScreen" class="screen">
   <header class="topbar">
     <button class="icon-btn" data-back-from-team aria-label="Back">←</button>

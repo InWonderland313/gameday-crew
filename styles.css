@@ -1303,3 +1303,360 @@ input:focus,select:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(244,
   background:#EFFAF4;
   border-color:#B9DDC9
 }
+
+
+/* V2.16 Season Rollover */
+.season-current-card,
+.rollover-section,
+.season-rollover-intro,
+.season-archive-summary,
+.archive-team-card{
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:18px;
+  padding:18px;
+  box-shadow:0 6px 20px rgba(9,39,78,.04)
+}
+.season-current-card{
+  display:grid;
+  gap:16px
+}
+.season-current-card h1,
+.season-rollover-intro h1{
+  margin:2px 0 6px;
+  color:var(--navy)
+}
+.season-admin-stats{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  border:1px solid var(--line);
+  border-radius:14px;
+  overflow:hidden
+}
+.season-admin-stats div{
+  padding:12px;
+  text-align:center;
+  background:#F8F9FB;
+  border-right:1px solid var(--line)
+}
+.season-admin-stats div:last-child{border-right:0}
+.season-admin-stats strong{
+  display:block;
+  color:var(--navy);
+  font-size:20px
+}
+.season-admin-stats small{
+  display:block;
+  color:var(--muted);
+  margin-top:3px
+}
+.season-archive-list,
+.archive-team-list{
+  display:grid;
+  gap:12px
+}
+.season-archive-card{
+  display:grid;
+  grid-template-columns:58px 1fr auto;
+  gap:12px;
+  align-items:center;
+  width:100%;
+  padding:13px;
+  border:1px solid var(--line);
+  border-radius:15px;
+  background:#fff;
+  text-align:left
+}
+.season-archive-year{
+  width:56px;
+  height:56px;
+  display:grid;
+  place-items:center;
+  border-radius:13px;
+  background:var(--navy);
+  color:var(--gold);
+  font-size:12px;
+  font-weight:900
+}
+.season-archive-card strong{
+  display:block;
+  color:var(--navy)
+}
+.season-archive-card small{
+  display:block;
+  margin-top:4px;
+  color:var(--muted)
+}
+.season-archive-arrow{
+  color:var(--navy);
+  font-size:24px
+}
+.season-rollover-intro{
+  display:grid;
+  grid-template-columns:58px 1fr;
+  gap:14px;
+  align-items:start
+}
+.season-rollover-icon{
+  width:56px;
+  height:56px;
+  display:grid;
+  place-items:center;
+  border-radius:14px;
+  background:var(--gold-soft);
+  font-size:26px
+}
+.rollover-section{
+  margin-top:14px
+}
+.rollover-team-list,
+.rollover-membership-list{
+  display:grid;
+  gap:11px
+}
+.rollover-team-card{
+  border:1px solid var(--line);
+  border-radius:15px;
+  background:#F8F9FB;
+  overflow:hidden
+}
+.rollover-team-card.disabled{
+  opacity:.62
+}
+.rollover-team-top{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:12px
+}
+.rollover-team-top input[type="checkbox"]{
+  width:18px;
+  height:18px;
+  accent-color:#198754
+}
+.rollover-team-top strong{
+  color:var(--navy)
+}
+.rollover-team-top small{
+  display:block;
+  color:var(--muted);
+  margin-top:2px
+}
+.rollover-team-fields{
+  display:grid;
+  grid-template-columns:1.4fr .7fr .8fr 1fr;
+  gap:9px;
+  padding:0 12px 12px
+}
+.rollover-team-fields label,
+.rollover-membership-fields label{
+  margin:0;
+  font-size:10px
+}
+.rollover-team-fields input,
+.rollover-team-fields select,
+.rollover-membership-fields input,
+.rollover-membership-fields select{
+  margin-top:5px
+}
+.rollover-membership-card{
+  display:grid;
+  grid-template-columns:52px 1fr;
+  gap:12px;
+  border:1px solid var(--line);
+  border-radius:15px;
+  padding:12px;
+  background:#fff
+}
+.rollover-member-number{
+  width:48px;
+  height:48px;
+  display:grid;
+  place-items:center;
+  border-radius:12px;
+  background:var(--navy);
+  color:var(--gold);
+  font-weight:900
+}
+.rollover-membership-heading{
+  margin-bottom:9px
+}
+.rollover-membership-heading strong{
+  display:block;
+  color:var(--navy)
+}
+.rollover-membership-heading small{
+  display:block;
+  color:var(--muted);
+  margin-top:3px
+}
+.rollover-membership-fields{
+  display:grid;
+  grid-template-columns:1.4fr .8fr .6fr;
+  gap:8px
+}
+.membership-key{
+  display:flex;
+  gap:7px;
+  flex-wrap:wrap;
+  margin:10px 0 14px
+}
+.rollover-finish-card{
+  border-color:#E9C34B;
+  background:#FFFCF2
+}
+.season-safety-note{
+  display:grid;
+  gap:4px;
+  margin:12px 0 16px;
+  padding:11px 12px;
+  border-radius:12px;
+  background:#fff;
+  border:1px solid #F1D179
+}
+.season-safety-note strong{
+  color:var(--navy);
+  font-size:11px
+}
+.season-safety-note span{
+  color:var(--muted);
+  font-size:10px;
+  line-height:1.45
+}
+.archive-summary-grid{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:8px;
+  margin-top:12px
+}
+.archive-summary-grid div{
+  text-align:center;
+  border:1px solid var(--line);
+  border-radius:12px;
+  padding:10px;
+  background:#F8F9FB
+}
+.archive-summary-grid strong{
+  display:block;
+  color:var(--navy);
+  font-size:18px
+}
+.archive-summary-grid small{
+  display:block;
+  color:var(--muted);
+  margin-top:3px
+}
+.archive-team-card{
+  margin-top:12px
+}
+.archive-team-heading{
+  display:flex;
+  gap:11px;
+  align-items:center;
+  margin-bottom:12px
+}
+.archive-team-badge{
+  width:48px;
+  height:48px;
+  display:grid;
+  place-items:center;
+  border-radius:12px;
+  background:var(--navy);
+  color:var(--gold);
+  font-weight:900
+}
+.archive-team-heading h3{
+  margin:0;
+  color:var(--navy)
+}
+.archive-team-heading small{
+  color:var(--muted)
+}
+.archive-team-honour{
+  margin:10px 0;
+  padding:10px 11px;
+  border-radius:11px;
+  background:var(--gold-soft);
+  border:1px solid #F1D179;
+  color:var(--navy);
+  font-size:11px;
+  font-weight:800
+}
+.archive-player-list{
+  display:grid;
+  gap:7px
+}
+.archive-player-row{
+  display:grid;
+  grid-template-columns:40px 1fr auto;
+  gap:9px;
+  align-items:center;
+  padding:8px 9px;
+  border:1px solid var(--line);
+  border-radius:11px;
+  background:#F8F9FB
+}
+.archive-player-number{
+  width:38px;
+  height:38px;
+  display:grid;
+  place-items:center;
+  border-radius:9px;
+  background:var(--navy);
+  color:var(--gold);
+  font-size:10px;
+  font-weight:900
+}
+.archive-player-row strong{
+  display:block;
+  color:var(--navy);
+  font-size:11px
+}
+.archive-player-row small{
+  display:block;
+  color:var(--muted);
+  margin-top:2px;
+  font-size:9px
+}
+.archive-player-stats{
+  color:var(--navy);
+  font-size:9px;
+  font-weight:800;
+  text-align:right
+}
+.rollover-status-pill{
+  display:inline-flex;
+  padding:5px 8px;
+  border-radius:999px;
+  background:#EFFAF4;
+  border:1px solid #B9DDC9;
+  color:#087A3F;
+  font-size:9px;
+  font-weight:900
+}
+
+@media(max-width:760px){
+  .rollover-team-fields,
+  .rollover-membership-fields{
+    grid-template-columns:1fr
+  }
+  .archive-summary-grid{
+    grid-template-columns:repeat(2,1fr)
+  }
+}
+@media(max-width:520px){
+  .season-admin-stats{
+    grid-template-columns:1fr
+  }
+  .season-admin-stats div{
+    border-right:0;
+    border-bottom:1px solid var(--line)
+  }
+  .season-admin-stats div:last-child{border-bottom:0}
+  .season-rollover-intro{
+    grid-template-columns:1fr
+  }
+  .rollover-membership-card{
+    grid-template-columns:1fr
+  }
+}

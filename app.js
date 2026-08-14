@@ -235,7 +235,8 @@
         renderClubPeople();
         showScreen("peopleScreen");
       } else if (target === "club") {
-        alert("Club settings will be added after teams and people.");
+        renderClubSeasons();
+        showScreen("clubSeasonsScreen");
       }
     });
   });
@@ -4522,6 +4523,1209 @@ Create a separate player record anyway?`
       button.textContent = "Save Game & Finish";
     }
   });
+
+
+  // ================================================================
+  // V2.16 — Season Rollover & Previous Seasons
+  // ================================================================
+
+  const SEASON_ARCHIVE_KEY = "gdc_v2_demo_season_archives";
+  let seasonRolloverDraft = null;
+  let openSeasonArchiveId = null;
+
+  const getClubRecord = () => {
+    try {
+      return JSON.parse(
+        localStorage.getItem("gdc_v2_demo_club") || "{}"
+      );
+    } catch {
+      return {};
+    }
+  };
+
+  const saveClubRecord = club => {
+    localStorage.setItem(
+      "gdc_v2_demo_club",
+      JSON.stringify(club)
+    );
+  };
+
+  const getSeasonArchives = () => {
+    try {
+      return JSON.parse(
+        localStorage.getItem(SEASON_ARCHIVE_KEY) || "[]"
+      );
+    } catch {
+      return [];
+    }
+  };
+
+  const saveSeasonArchives = archives => {
+    localStorage.setItem(
+      SEASON_ARCHIVE_KEY,
+      JSON.stringify(archives)
+    );
+  };
+
+  const deepCopy = value =>
+    JSON.parse(JSON.stringify(value));
+
+  const suggestedNextAgeGroup = ageGroup => {
+    const order = ["U9", "U10", "U12", "U14", "U16", "U18"];
+    const index = order.indexOf(ageGroup);
+    if (index < 0) return ageGroup || "U12";
+    return order[Math.min(index + 1, order.length - 1)];
+  };
+
+  const seasonAgeOptions = selected =>
+    ["U9", "U10", "U12", "U14", "U16", "U18"]
+      .map(age =>
+        `<option value="${age}" ${age === selected ? "selected" : ""}>${age}</option>`
+      )
+      .join("");
+
+  const seasonCategoryOptions = selected =>
+    ["Boys", "Girls", "Mixed", "Other"]
+      .map(category =>
+        `<option value="${category}" ${category === selected ? "selected" : ""}>${category}</option>`
+      )
+      .join("");
+
+  const currentSeasonTeamIds = () =>
+    new Set(getTeams().map(team => team.id));
+
+  const currentSeasonGames = () => {
+    const ids = currentSeasonTeamIds();
+    return getAllCompletedGames().filter(game =>
+      ids.has(game.teamId)
+    );
+  };
+
+  const currentSeasonMemberships = () => {
+    const ids = currentSeasonTeamIds();
+    return getMemberships().filter(membership =>
+      ids.has(membership.teamId) &&
+      membership.status !== "inactive"
+    );
+  };
+
+  const currentSeasonPlayerIds = () =>
+    new Set(
+      currentSeasonMemberships().map(item => item.playerId)
+    );
+
+  const currentSeasonLiveTeamIds = () => {
+    const ids = currentSeasonTeamIds();
+    const live = getLiveGames();
+    return Object.keys(live).filter(teamId =>
+      ids.has(teamId) && live[teamId]
+    );
+  };
+
+  const archiveStatForPlayer = (games, playerId) => {
+    let seasonGames = 0;
+    let goals = 0;
+    let points = 0;
+    let awards = 0;
+
+    games.forEach(game => {
+      const stat = (game.playerStats || []).find(item =>
+        item.playerId === playerId
+      );
+
+      if (stat) {
+        seasonGames += 1;
+        goals += Number(stat.goals || 0);
+        points += Number(stat.points || 0);
+      }
+
+      awards += (game.awards || []).filter(award =>
+        award.playerId === playerId &&
+        award.given !== false
+      ).length;
+    });
+
+    return {
+      seasonGames,
+      goals,
+      points,
+      score: goals * 6 + points,
+      awards
+    };
+  };
+
+  const createSeasonArchiveSnapshot = () => {
+    const club = getClubRecord();
+    const teams = deepCopy(getTeams());
+    const teamIds = new Set(teams.map(team => team.id));
+    const games = deepCopy(
+      getAllCompletedGames().filter(game =>
+        teamIds.has(game.teamId)
+      )
+    );
+    const memberships = deepCopy(
+      getMemberships().filter(item =>
+        teamIds.has(item.teamId)
+      )
+    );
+    const settingsAll = getTeamSettings();
+    const teamSettings = {};
+
+    teams.forEach(team => {
+      teamSettings[team.id] = deepCopy(
+        settingsAll[team.id] || {}
+      );
+    });
+
+    const invites = deepCopy(
+      getInvites().filter(invite =>
+        !invite.teamId || teamIds.has(invite.teamId)
+      )
+    );
+
+    const playerIds = new Set([
+      ...memberships.map(item => item.playerId),
+      ...games.flatMap(game =>
+        (game.playerStats || []).map(stat => stat.playerId)
+      )
+    ]);
+
+    const playerSnapshots = getAllPlayers()
+      .filter(player => playerIds.has(player.id))
+      .map(player => ({
+        id: player.id,
+        name: player.name,
+        careerGamesAtClose: Number(player.careerGames || 0),
+        status: player.status || "active"
+      }));
+
+    return {
+      id:
+        `season_${Number(club.season || new Date().getFullYear())}_${Date.now()}`,
+      season: Number(club.season || new Date().getFullYear()),
+      clubName: club.name || "Club",
+      archivedAt: new Date().toISOString(),
+      teams,
+      memberships,
+      games,
+      teamSettings,
+      invites,
+      playerSnapshots
+    };
+  };
+
+  const archiveTeamPlayerRows = (archive, team) => {
+    const teamGames = archive.games.filter(game =>
+      game.teamId === team.id
+    );
+    const memberships = archive.memberships.filter(item =>
+      item.teamId === team.id
+    );
+
+    const playerMap = new Map(
+      archive.playerSnapshots.map(player =>
+        [player.id, player]
+      )
+    );
+
+    return memberships
+      .map(membership => {
+        const player = playerMap.get(membership.playerId);
+        if (!player) return null;
+
+        return {
+          player,
+          membership,
+          stats: archiveStatForPlayer(
+            teamGames,
+            player.id
+          )
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) =>
+        Number(a.membership.number || 999) -
+          Number(b.membership.number || 999) ||
+        a.player.name.localeCompare(b.player.name)
+      );
+  };
+
+  const archiveGoldenBoot = (archive, team) => {
+    const rows = archiveTeamPlayerRows(archive, team);
+    const topGoals = rows.reduce(
+      (max, row) => Math.max(max, row.stats.goals),
+      0
+    );
+
+    if (topGoals <= 0) {
+      return {
+        goals: 0,
+        names: []
+      };
+    }
+
+    return {
+      goals: topGoals,
+      names: rows
+        .filter(row => row.stats.goals === topGoals)
+        .map(row => row.player.name)
+    };
+  };
+
+  const renderClubSeasons = () => {
+    const club = getClubRecord();
+    const teams = getTeams();
+    const games = currentSeasonGames();
+    const playerIds = currentSeasonPlayerIds();
+    const archives = [...getSeasonArchives()].sort(
+      (a, b) => Number(b.season || 0) - Number(a.season || 0)
+    );
+
+    document.getElementById(
+      "seasonAdminCurrentTitle"
+    ).textContent = `Season ${club.season || 2027}`;
+
+    document.getElementById(
+      "seasonAdminCurrentMeta"
+    ).textContent =
+      `${club.name || "Club"} • Active season`;
+
+    document.getElementById(
+      "seasonAdminTeamCount"
+    ).textContent = String(teams.length);
+
+    document.getElementById(
+      "seasonAdminPlayerCount"
+    ).textContent = String(playerIds.size);
+
+    document.getElementById(
+      "seasonAdminGameCount"
+    ).textContent = String(games.length);
+
+    const empty = document.getElementById(
+      "seasonArchiveEmpty"
+    );
+    const list = document.getElementById(
+      "seasonArchiveList"
+    );
+
+    if (!archives.length) {
+      empty?.classList.remove("hidden");
+      if (list) list.innerHTML = "";
+      return;
+    }
+
+    empty?.classList.add("hidden");
+
+    if (list) {
+      list.innerHTML = archives.map(archive => {
+        const teamCount = (archive.teams || []).length;
+        const gameCount = (archive.games || []).length;
+        const playerCount = new Set(
+          (archive.memberships || []).map(item => item.playerId)
+        ).size;
+
+        return `
+          <button class="season-archive-card" data-season-archive-id="${archive.id}">
+            <div class="season-archive-year">${archive.season}</div>
+            <div>
+              <strong>${archive.clubName || "Club"} • Season ${archive.season}</strong>
+              <small>${teamCount} team${teamCount === 1 ? "" : "s"} • ${playerCount} player${playerCount === 1 ? "" : "s"} • ${gameCount} completed game${gameCount === 1 ? "" : "s"}</small>
+            </div>
+            <span class="season-archive-arrow">›</span>
+          </button>
+        `;
+      }).join("");
+    }
+  };
+
+  const createSeasonRolloverDraft = () => {
+    const club = getClubRecord();
+    const currentYear = Number(
+      club.season || new Date().getFullYear()
+    );
+    const teams = getTeams();
+    const memberships = currentSeasonMemberships();
+    const players = new Map(
+      getAllPlayers().map(player => [player.id, player])
+    );
+
+    return {
+      fromSeason: currentYear,
+      toSeason: currentYear + 1,
+      teams: teams.map(team => ({
+        oldTeamId: team.id,
+        carry: true,
+        name: team.name,
+        ageGroup: suggestedNextAgeGroup(team.ageGroup),
+        category: team.category || "Mixed",
+        division: team.division || ""
+      })),
+      memberships: memberships.map(item => {
+        const player = players.get(item.playerId);
+        const oldTeam = teams.find(team =>
+          team.id === item.teamId
+        );
+
+        return {
+          membershipId: item.id,
+          playerId: item.playerId,
+          playerName: player?.name || "Player",
+          careerGames: Number(player?.careerGames || 0),
+          oldTeamId: item.teamId,
+          oldTeamName: oldTeam?.name || "Team",
+          targetOldTeamId: item.teamId,
+          role: item.role || "additional",
+          number: item.number || ""
+        };
+      })
+    };
+  };
+
+  const activeDraftTeams = () =>
+    (seasonRolloverDraft?.teams || []).filter(team =>
+      team.carry
+    );
+
+  const rolloverTeamTargetOptions = selectedOldTeamId => {
+    const teams = activeDraftTeams();
+
+    return [
+      `<option value="">Do not carry forward</option>`,
+      ...teams.map(team =>
+        `<option value="${team.oldTeamId}" ${team.oldTeamId === selectedOldTeamId ? "selected" : ""}>${team.ageGroup} • ${team.name}</option>`
+      )
+    ].join("");
+  };
+
+  const renderRolloverTeams = () => {
+    if (!seasonRolloverDraft) return;
+
+    const wrap = document.getElementById(
+      "rolloverTeamsList"
+    );
+    if (!wrap) return;
+
+    wrap.innerHTML = seasonRolloverDraft.teams
+      .map(team => `
+        <article class="rollover-team-card ${team.carry ? "" : "disabled"}" data-rollover-team-card="${team.oldTeamId}">
+          <div class="rollover-team-top">
+            <input type="checkbox"
+              data-rollover-team-carry="${team.oldTeamId}"
+              ${team.carry ? "checked" : ""}>
+            <div>
+              <strong>${team.name}</strong>
+              <small>Current team → next-season team</small>
+            </div>
+            <span class="rollover-status-pill">${team.carry ? "CONTINUE" : "STOP"}</span>
+          </div>
+
+          <div class="rollover-team-fields">
+            <label>Team name
+              <input type="text"
+                data-rollover-team-field="name"
+                data-rollover-team-id="${team.oldTeamId}"
+                value="${String(team.name).replace(/"/g, "&quot;")}"
+                ${team.carry ? "" : "disabled"}>
+            </label>
+
+            <label>Age group
+              <select
+                data-rollover-team-field="ageGroup"
+                data-rollover-team-id="${team.oldTeamId}"
+                ${team.carry ? "" : "disabled"}>
+                ${seasonAgeOptions(team.ageGroup)}
+              </select>
+            </label>
+
+            <label>Category
+              <select
+                data-rollover-team-field="category"
+                data-rollover-team-id="${team.oldTeamId}"
+                ${team.carry ? "" : "disabled"}>
+                ${seasonCategoryOptions(team.category)}
+              </select>
+            </label>
+
+            <label>Division / label
+              <input type="text"
+                data-rollover-team-field="division"
+                data-rollover-team-id="${team.oldTeamId}"
+                value="${String(team.division || "").replace(/"/g, "&quot;")}"
+                ${team.carry ? "" : "disabled"}>
+            </label>
+          </div>
+        </article>
+      `)
+      .join("");
+  };
+
+  const renderRolloverMemberships = () => {
+    if (!seasonRolloverDraft) return;
+
+    const wrap = document.getElementById(
+      "rolloverMembershipsList"
+    );
+    if (!wrap) return;
+
+    const rows = [...seasonRolloverDraft.memberships]
+      .sort((a, b) =>
+        a.playerName.localeCompare(b.playerName) ||
+        a.oldTeamName.localeCompare(b.oldTeamName)
+      );
+
+    if (!rows.length) {
+      wrap.innerHTML = `
+        <div class="soft-empty">
+          <span>👥</span>
+          <strong>No team memberships to carry forward</strong>
+          <small>You can add players after the new season starts.</small>
+        </div>
+      `;
+      return;
+    }
+
+    wrap.innerHTML = rows.map(row => {
+      const targetExists = activeDraftTeams().some(team =>
+        team.oldTeamId === row.targetOldTeamId
+      );
+
+      if (!targetExists) {
+        row.targetOldTeamId = "";
+      }
+
+      return `
+        <article class="rollover-membership-card">
+          <div class="rollover-member-number">${row.number || "—"}</div>
+          <div>
+            <div class="rollover-membership-heading">
+              <strong>${row.playerName}</strong>
+              <small>${row.oldTeamName} • ${membershipRoleLabel(row.role)} • ${row.careerGames} career games</small>
+            </div>
+
+            <div class="rollover-membership-fields">
+              <label>Next-season team
+                <select data-rollover-member-field="targetOldTeamId" data-rollover-membership-id="${row.membershipId}">
+                  ${rolloverTeamTargetOptions(row.targetOldTeamId)}
+                </select>
+              </label>
+
+              <label>Membership
+                <select data-rollover-member-field="role" data-rollover-membership-id="${row.membershipId}">
+                  <option value="primary" ${row.role === "primary" ? "selected" : ""}>Primary Team</option>
+                  <option value="playing_up" ${row.role === "playing_up" ? "selected" : ""}>Playing Up</option>
+                  <option value="additional" ${row.role === "additional" ? "selected" : ""}>Additional Team</option>
+                </select>
+              </label>
+
+              <label>Jumper
+                <input type="number" min="0" max="99"
+                  data-rollover-member-field="number"
+                  data-rollover-membership-id="${row.membershipId}"
+                  value="${row.number || ""}">
+              </label>
+            </div>
+          </div>
+        </article>
+      `;
+    }).join("");
+  };
+
+  const rolloverKeptMemberships = () => {
+    if (!seasonRolloverDraft) return [];
+    const activeIds = new Set(
+      activeDraftTeams().map(team => team.oldTeamId)
+    );
+
+    return seasonRolloverDraft.memberships.filter(row =>
+      row.targetOldTeamId &&
+      activeIds.has(row.targetOldTeamId)
+    );
+  };
+
+  const renderRolloverSummary = () => {
+    if (!seasonRolloverDraft) return;
+
+    const teams = activeDraftTeams();
+    const memberships = rolloverKeptMemberships();
+    const playerCount = new Set(
+      memberships.map(item => item.playerId)
+    ).size;
+
+    document.getElementById(
+      "rolloverSeasonTitle"
+    ).textContent =
+      `${seasonRolloverDraft.fromSeason} → ${seasonRolloverDraft.toSeason}`;
+
+    document.getElementById(
+      "rolloverSummaryText"
+    ).textContent =
+      `${teams.length} team${teams.length === 1 ? "" : "s"} and ${playerCount} player${playerCount === 1 ? "" : "s"} will be carried into Season ${seasonRolloverDraft.toSeason}. Career games continue from their current totals.`;
+  };
+
+  const renderSeasonRollover = () => {
+    if (!seasonRolloverDraft) {
+      seasonRolloverDraft = createSeasonRolloverDraft();
+    }
+
+    const liveIds = currentSeasonLiveTeamIds();
+    const warning = document.getElementById(
+      "rolloverLiveWarning"
+    );
+    const button = document.getElementById(
+      "rolloverCreateButton"
+    );
+
+    warning?.classList.toggle(
+      "hidden",
+      liveIds.length === 0
+    );
+
+    if (button) {
+      button.disabled = liveIds.length > 0;
+    }
+
+    document.getElementById(
+      "rolloverYearInput"
+    ).value = String(seasonRolloverDraft.toSeason);
+
+    document.getElementById(
+      "rolloverHeaderTitle"
+    ).textContent =
+      `Set Up Season ${seasonRolloverDraft.toSeason}`;
+
+    renderRolloverTeams();
+    renderRolloverMemberships();
+    renderRolloverSummary();
+  };
+
+  const validateRolloverDraft = () => {
+    if (!seasonRolloverDraft) {
+      return {
+        ok: false,
+        message: "No season rollover is being prepared."
+      };
+    }
+
+    const teams = activeDraftTeams();
+    if (!teams.length) {
+      return {
+        ok: false,
+        message: "Keep at least one team for the new season."
+      };
+    }
+
+    if (
+      !Number.isInteger(Number(seasonRolloverDraft.toSeason)) ||
+      Number(seasonRolloverDraft.toSeason) <=
+        Number(seasonRolloverDraft.fromSeason)
+    ) {
+      return {
+        ok: false,
+        message: "Choose a season year later than the current season."
+      };
+    }
+
+    for (const team of teams) {
+      if (!String(team.name || "").trim()) {
+        return {
+          ok: false,
+          message: "Every continuing team needs a team name."
+        };
+      }
+    }
+
+    const memberships = rolloverKeptMemberships();
+    const seenPlayerTeam = new Set();
+
+    for (const row of memberships) {
+      const key = `${row.playerId}::${row.targetOldTeamId}`;
+      if (seenPlayerTeam.has(key)) {
+        return {
+          ok: false,
+          message:
+            `${row.playerName} is mapped to the same new team more than once. Choose a different team or stop one of those memberships.`
+        };
+      }
+      seenPlayerTeam.add(key);
+    }
+
+    return {
+      ok: true,
+      message: ""
+    };
+  };
+
+  const normaliseNewSeasonRoles = rows => {
+    const grouped = new Map();
+
+    rows.forEach(row => {
+      if (!grouped.has(row.playerId)) {
+        grouped.set(row.playerId, []);
+      }
+      grouped.get(row.playerId).push(row);
+    });
+
+    grouped.forEach(playerRows => {
+      const primaries = playerRows.filter(row =>
+        row.role === "primary"
+      );
+
+      if (!primaries.length) {
+        playerRows[0].role = "primary";
+      } else if (primaries.length > 1) {
+        primaries.slice(1).forEach(row => {
+          row.role = "additional";
+        });
+      }
+    });
+
+    return rows;
+  };
+
+  const completeSeasonRollover = () => {
+    const validation = validateRolloverDraft();
+    if (!validation.ok) {
+      alert(validation.message);
+      return;
+    }
+
+    const liveIds = currentSeasonLiveTeamIds();
+    if (liveIds.length) {
+      alert(
+        "Finish the live game before rolling the season forward."
+      );
+      return;
+    }
+
+    const archive = createSeasonArchiveSnapshot();
+    const nextYear = Number(
+      seasonRolloverDraft.toSeason
+    );
+
+    const confirmText =
+      `Archive Season ${archive.season} and start Season ${nextYear}?\n\n` +
+      "The old season will become read-only history. Career games will stay exactly as they are. New season games, goals, points and awards start at zero.";
+
+    if (!confirm(confirmText)) return;
+
+    const oldTeams = getTeams();
+    const oldTeamIds = new Set(
+      oldTeams.map(team => team.id)
+    );
+    const activeTeamDrafts = activeDraftTeams();
+    const now = Date.now();
+
+    const newTeams = activeTeamDrafts.map(
+      (draft, index) => ({
+        id: `team_${now}_${index}`,
+        name: String(draft.name || "").trim(),
+        ageGroup: draft.ageGroup,
+        category: draft.category,
+        division: String(draft.division || "").trim(),
+        season: nextYear,
+        sourceTeamId: draft.oldTeamId,
+        createdAt: new Date().toISOString()
+      })
+    );
+
+    const newTeamByOldId = new Map(
+      newTeams.map(team =>
+        [team.sourceTeamId, team]
+      )
+    );
+
+    let newMembershipRows = rolloverKeptMemberships()
+      .map(row => ({
+        ...deepCopy(row)
+      }));
+
+    newMembershipRows = normaliseNewSeasonRoles(
+      newMembershipRows
+    );
+
+    const existingMemberships = getMemberships().filter(
+      item => !oldTeamIds.has(item.teamId)
+    );
+
+    const newMemberships = newMembershipRows.map(
+      (row, index) => {
+        const team = newTeamByOldId.get(
+          row.targetOldTeamId
+        );
+
+        return {
+          id:
+            `membership_${now}_${index}_${row.playerId}`,
+          playerId: row.playerId,
+          teamId: team.id,
+          role: row.role,
+          number: row.number || "",
+          status: "active",
+          season: nextYear,
+          sourceMembershipId: row.membershipId,
+          createdAt: new Date().toISOString()
+        };
+      }
+    );
+
+    const playerMembershipGroups = new Map();
+    newMemberships.forEach(item => {
+      if (!playerMembershipGroups.has(item.playerId)) {
+        playerMembershipGroups.set(item.playerId, []);
+      }
+      playerMembershipGroups.get(item.playerId).push(item);
+    });
+
+    const players = getAllPlayers().map(player => {
+      const memberships =
+        playerMembershipGroups.get(player.id) || [];
+
+      if (!memberships.length) {
+        if (
+          currentSeasonPlayerIds().has(player.id)
+        ) {
+          return {
+            ...player,
+            teamId: null,
+            primaryTeamId: null
+          };
+        }
+        return player;
+      }
+
+      const primary =
+        memberships.find(item =>
+          item.role === "primary"
+        ) || memberships[0];
+
+      return {
+        ...player,
+        teamId: primary.teamId,
+        primaryTeamId: primary.teamId,
+        number:
+          primary.number ??
+          player.number ??
+          ""
+      };
+    });
+
+    const oldSettings = getTeamSettings();
+    const newSettings = {};
+
+    newTeams.forEach(team => {
+      const source = oldSettings[
+        team.sourceTeamId
+      ] || {};
+
+      newSettings[team.id] = {
+        ...defaultSettingsForTeam(),
+        awards: deepCopy(source.awards || []),
+        milestones: deepCopy(
+          source.milestones ||
+          [50, 100, 150]
+        ),
+        milestoneWindow: Number(
+          source.milestoneWindow || 5
+        ),
+        captains: [],
+        viceCaptains: [],
+        rolledFromTeamId: team.sourceTeamId,
+        rolledFromSeason: archive.season,
+        updatedAt: new Date().toISOString()
+      };
+    });
+
+    const oldInvites = getInvites();
+    const newInvites = [];
+
+    oldInvites.forEach(invite => {
+      if (!invite.teamId) {
+        newInvites.push(invite);
+        return;
+      }
+
+      if (!oldTeamIds.has(invite.teamId)) {
+        newInvites.push(invite);
+        return;
+      }
+
+      const newTeam =
+        newTeamByOldId.get(invite.teamId);
+
+      if (!newTeam) return;
+
+      newInvites.push({
+        ...invite,
+        id:
+          `invite_${now}_${newInvites.length}`,
+        teamId: newTeam.id,
+        rolledFromInviteId: invite.id
+      });
+    });
+
+    const nextGames = getNextGames();
+    oldTeamIds.forEach(teamId => {
+      delete nextGames[teamId];
+    });
+
+    const liveGames = getLiveGames();
+    oldTeamIds.forEach(teamId => {
+      delete liveGames[teamId];
+    });
+
+    const archives = getSeasonArchives();
+    archives.push(archive);
+    saveSeasonArchives(archives);
+
+    saveTeams(newTeams);
+    saveMemberships([
+      ...existingMemberships,
+      ...newMemberships
+    ]);
+    saveAllPlayers(players);
+    saveTeamSettings(newSettings);
+    saveInvites(newInvites);
+    saveNextGames(nextGames);
+    saveLiveGames(liveGames);
+
+    const club = getClubRecord();
+    club.season = nextYear;
+    club.updatedAt = new Date().toISOString();
+    saveClubRecord(club);
+
+    currentTeamId = null;
+    managerProfilePlayerId = null;
+    managerReviewGameId = null;
+    managerReviewDraft = null;
+    managerReviewEditMode = false;
+    seasonRolloverDraft = null;
+
+    const seasonLabel =
+      document.getElementById("dashboardSeason");
+    if (seasonLabel) {
+      seasonLabel.textContent = `Season ${nextYear}`;
+    }
+
+    renderTeams();
+    renderClubPeople();
+    renderClubSeasons();
+
+    alert(
+      `Season ${archive.season} has been archived. Season ${nextYear} is ready. Career games were carried forward and new season stats start at zero.`
+    );
+
+    showScreen("clubSeasonsScreen");
+  };
+
+  const renderSeasonArchiveDetail = archiveId => {
+    const archive = getSeasonArchives().find(
+      item => item.id === archiveId
+    );
+    if (!archive) {
+      renderClubSeasons();
+      showScreen("clubSeasonsScreen");
+      return;
+    }
+
+    openSeasonArchiveId = archive.id;
+
+    document.getElementById(
+      "archiveSeasonTitle"
+    ).textContent =
+      `Season ${archive.season}`;
+
+    const playerCount = new Set(
+      (archive.memberships || []).map(item =>
+        item.playerId
+      )
+    ).size;
+
+    const totalGoals = (archive.games || []).reduce(
+      (sum, game) =>
+        sum + Number(game.teamGoals || 0),
+      0
+    );
+    const totalPoints = (archive.games || []).reduce(
+      (sum, game) =>
+        sum + Number(game.teamPoints || 0),
+      0
+    );
+
+    document.getElementById(
+      "archiveSeasonSummary"
+    ).innerHTML = `
+      <p class="eyebrow">READ-ONLY HISTORY</p>
+      <h1>${archive.clubName || "Club"} • Season ${archive.season}</h1>
+      <p class="muted">Archived ${new Date(archive.archivedAt).toLocaleDateString("en-AU", {day:"numeric", month:"short", year:"numeric"})}. This season cannot be changed by the active-season tools.</p>
+
+      <div class="archive-summary-grid">
+        <div><strong>${(archive.teams || []).length}</strong><small>Teams</small></div>
+        <div><strong>${playerCount}</strong><small>Players</small></div>
+        <div><strong>${(archive.games || []).length}</strong><small>Games</small></div>
+        <div><strong>${totalGoals * 6 + totalPoints}</strong><small>Points scored</small></div>
+      </div>
+    `;
+
+    const teamWrap = document.getElementById(
+      "archiveSeasonTeams"
+    );
+
+    teamWrap.innerHTML = (archive.teams || [])
+      .map(team => {
+        const teamGames = (archive.games || []).filter(
+          game => game.teamId === team.id
+        );
+        const playerRows =
+          archiveTeamPlayerRows(archive, team);
+        const goldenBoot =
+          archiveGoldenBoot(archive, team);
+        const teamGoals = teamGames.reduce(
+          (sum, game) =>
+            sum + Number(game.teamGoals || 0),
+          0
+        );
+        const teamPoints = teamGames.reduce(
+          (sum, game) =>
+            sum + Number(game.teamPoints || 0),
+          0
+        );
+        const awardsGiven = teamGames.reduce(
+          (sum, game) =>
+            sum +
+            (game.awards || []).filter(award =>
+              award.playerId &&
+              award.given !== false
+            ).length,
+          0
+        );
+
+        const goldenBootText =
+          goldenBoot.names.length
+            ? `Golden Boot: ${goldenBoot.names.join(", ")} • ${goldenBoot.goals} goal${goldenBoot.goals === 1 ? "" : "s"}`
+            : "Golden Boot: No goals recorded";
+
+        return `
+          <article class="archive-team-card">
+            <div class="archive-team-heading">
+              <div class="archive-team-badge">${team.ageGroup || "TEAM"}</div>
+              <div>
+                <h3>${team.name}</h3>
+                <small>${teamMeta(team)} • ${teamGames.length} completed game${teamGames.length === 1 ? "" : "s"} • ${awardsGiven} award${awardsGiven === 1 ? "" : "s"}</small>
+              </div>
+            </div>
+
+            <div class="archive-team-honour">🏆 ${goldenBootText}</div>
+
+            <div class="archive-summary-grid">
+              <div><strong>${teamGames.length}</strong><small>Games</small></div>
+              <div><strong>${teamGoals}</strong><small>Goals</small></div>
+              <div><strong>${teamPoints}</strong><small>Points</small></div>
+              <div><strong>${teamGoals * 6 + teamPoints}</strong><small>Team score</small></div>
+            </div>
+
+            <div class="section-heading-row" style="margin-top:14px">
+              <div>
+                <p class="eyebrow">FINAL ROSTER</p>
+                <h3>Player totals</h3>
+              </div>
+            </div>
+
+            <div class="archive-player-list">
+              ${
+                playerRows.length
+                  ? playerRows.map(row => `
+                    <div class="archive-player-row">
+                      <div class="archive-player-number">${row.membership.number || "—"}</div>
+                      <div>
+                        <strong>${row.player.name}</strong>
+                        <small>${membershipRoleLabel(row.membership.role)} • ${row.player.careerGamesAtClose} career games at season close</small>
+                      </div>
+                      <div class="archive-player-stats">
+                        ${row.stats.seasonGames} GP • ${row.stats.goals} G • ${row.stats.points} P • ${row.stats.awards} 🏆
+                      </div>
+                    </div>
+                  `).join("")
+                  : `<div class="soft-empty"><span>👥</span><strong>No players recorded</strong></div>`
+              }
+            </div>
+          </article>
+        `;
+      })
+      .join("");
+  };
+
+  document.querySelector(
+    "[data-back-seasons-dashboard]"
+  )?.addEventListener("click", () => {
+    renderTeams();
+    showScreen("clubDashboardScreen");
+  });
+
+  document.querySelector(
+    "[data-open-season-rollover]"
+  )?.addEventListener("click", () => {
+    seasonRolloverDraft =
+      createSeasonRolloverDraft();
+    renderSeasonRollover();
+    showScreen("seasonRolloverScreen");
+  });
+
+  document.querySelector(
+    "[data-back-season-admin]"
+  )?.addEventListener("click", () => {
+    seasonRolloverDraft = null;
+    renderClubSeasons();
+    showScreen("clubSeasonsScreen");
+  });
+
+  document.querySelector(
+    "[data-back-season-archive-list]"
+  )?.addEventListener("click", () => {
+    openSeasonArchiveId = null;
+    renderClubSeasons();
+    showScreen("clubSeasonsScreen");
+  });
+
+  document.getElementById(
+    "rolloverYearInput"
+  )?.addEventListener("change", event => {
+    if (!seasonRolloverDraft) return;
+
+    seasonRolloverDraft.toSeason = Number(
+      event.target.value ||
+      seasonRolloverDraft.fromSeason + 1
+    );
+
+    renderRolloverSummary();
+
+    document.getElementById(
+      "rolloverHeaderTitle"
+    ).textContent =
+      `Set Up Season ${seasonRolloverDraft.toSeason}`;
+  });
+
+  document.addEventListener("change", event => {
+    const carry = event.target.closest(
+      "[data-rollover-team-carry]"
+    );
+
+    if (carry && seasonRolloverDraft) {
+      const team = seasonRolloverDraft.teams.find(
+        item =>
+          item.oldTeamId ===
+          carry.dataset.rolloverTeamCarry
+      );
+
+      if (!team) return;
+
+      team.carry = Boolean(carry.checked);
+      renderRolloverTeams();
+      renderRolloverMemberships();
+      renderRolloverSummary();
+      return;
+    }
+
+    const teamField = event.target.closest(
+      "[data-rollover-team-field][data-rollover-team-id]"
+    );
+
+    if (teamField && seasonRolloverDraft) {
+      const team = seasonRolloverDraft.teams.find(
+        item =>
+          item.oldTeamId ===
+          teamField.dataset.rolloverTeamId
+      );
+
+      if (!team) return;
+
+      team[teamField.dataset.rolloverTeamField] =
+        teamField.value;
+
+      renderRolloverMemberships();
+      renderRolloverSummary();
+      return;
+    }
+
+    const memberField = event.target.closest(
+      "[data-rollover-member-field][data-rollover-membership-id]"
+    );
+
+    if (memberField && seasonRolloverDraft) {
+      const row =
+        seasonRolloverDraft.memberships.find(
+          item =>
+            item.membershipId ===
+            memberField.dataset.rolloverMembershipId
+        );
+
+      if (!row) return;
+
+      row[memberField.dataset.rolloverMemberField] =
+        memberField.value;
+
+      renderRolloverSummary();
+    }
+  });
+
+  document.addEventListener("input", event => {
+    const teamField = event.target.closest(
+      "input[data-rollover-team-field][data-rollover-team-id]"
+    );
+
+    if (teamField && seasonRolloverDraft) {
+      const team = seasonRolloverDraft.teams.find(
+        item =>
+          item.oldTeamId ===
+          teamField.dataset.rolloverTeamId
+      );
+
+      if (team) {
+        team[teamField.dataset.rolloverTeamField] =
+          teamField.value;
+      }
+      return;
+    }
+
+    const memberField = event.target.closest(
+      "input[data-rollover-member-field][data-rollover-membership-id]"
+    );
+
+    if (memberField && seasonRolloverDraft) {
+      const row =
+        seasonRolloverDraft.memberships.find(
+          item =>
+            item.membershipId ===
+            memberField.dataset.rolloverMembershipId
+        );
+
+      if (row) {
+        row[memberField.dataset.rolloverMemberField] =
+          memberField.value;
+      }
+    }
+  });
+
+  document.addEventListener("click", event => {
+    const archiveCard = event.target.closest(
+      "[data-season-archive-id]"
+    );
+
+    if (archiveCard) {
+      renderSeasonArchiveDetail(
+        archiveCard.dataset.seasonArchiveId
+      );
+      showScreen("seasonArchiveDetailScreen");
+    }
+  });
+
+  document.querySelector(
+    "[data-complete-season-rollover]"
+  )?.addEventListener(
+    "click",
+    completeSeasonRollover
+  );
+
 
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
