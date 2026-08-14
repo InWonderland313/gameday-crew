@@ -308,7 +308,7 @@
         <div>
           <p class="eyebrow">STEP 2</p>
           <h2 class="section-title">Teams moving forward</h2>
-          <p class="muted">We suggest the next age group, but you choose the correct team for your competition.</p>
+          <p class="muted">Teams stay the same by default. Change the name, age group or category only if your club structure changes.</p>
         </div>
       </div>
 
@@ -319,19 +319,25 @@
       <div class="section-heading-row">
         <div>
           <p class="eyebrow">STEP 3</p>
-          <h2 class="section-title">Players & team memberships</h2>
+          <h2 class="section-title">Players moving into the new season</h2>
           <p class="muted">
-            Keep, move or stop each membership. Multi-team players can continue on more than one team.
+            Players carry forward only through their Primary Team. Playing Up and Additional Team links finish with the old season and can be re-added later if needed.
           </p>
         </div>
       </div>
 
-      <div class="membership-key">
-        <span class="player-membership-tag primary">Primary Team</span>
-        <span class="player-membership-tag playing-up">Playing Up</span>
-        <span class="player-membership-tag additional">Additional Team</span>
+      <div class="season-clean-start-note">
+        <strong>Clean start each season</strong>
+        <span>
+          Career games stay exactly as earned. Cross-team links are archived with the old season, but are not automatically copied into the new one.
+        </span>
       </div>
 
+      <label class="rollover-team-filter-label">Show players from Primary Team
+        <select id="rolloverPlayerTeamFilter"></select>
+      </label>
+
+      <div id="rolloverTeamPlayerCount" class="rollover-filter-summary"></div>
       <div id="rolloverMembershipsList" class="rollover-membership-list"></div>
     </section>
 

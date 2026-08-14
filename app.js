@@ -4850,35 +4850,81 @@ Create a separate player record anyway?`
       getAllPlayers().map(player => [player.id, player])
     );
 
+    const membershipsByPlayer = new Map();
+    memberships.forEach(item => {
+      if (!membershipsByPlayer.has(item.playerId)) {
+        membershipsByPlayer.set(item.playerId, []);
+      }
+      membershipsByPlayer.get(item.playerId).push(item);
+    });
+
+    const primaryRows = [];
+
+    membershipsByPlayer.forEach((playerMemberships, playerId) => {
+      const player = players.get(playerId);
+      if (!player) return;
+
+      const primary =
+        playerMemberships.find(item => item.role === "primary") ||
+        playerMemberships.find(item => item.teamId === player.primaryTeamId) ||
+        playerMemberships[0];
+
+      if (!primary) return;
+
+      const oldTeam = teams.find(team =>
+        team.id === primary.teamId
+      );
+
+      const priorExtraMemberships = playerMemberships
+        .filter(item => item.id !== primary.id)
+        .map(item => {
+          const team = teams.find(candidate =>
+            candidate.id === item.teamId
+          );
+
+          return {
+            teamId: item.teamId,
+            teamName: team?.name || "Team",
+            ageGroup: team?.ageGroup || "",
+            role: item.role || "additional",
+            number: item.number || ""
+          };
+        });
+
+      primaryRows.push({
+        membershipId: primary.id,
+        playerId,
+        playerName: player.name || "Player",
+        careerGames: Number(player.careerGames || 0),
+        oldTeamId: primary.teamId,
+        oldTeamName: oldTeam?.name || "Team",
+        targetOldTeamId: primary.teamId,
+        role: "primary",
+        number: primary.number || player.number || "",
+        priorExtraMemberships
+      });
+    });
+
+    const firstTeamWithPlayers =
+      teams.find(team =>
+        primaryRows.some(row => row.oldTeamId === team.id)
+      )?.id ||
+      teams[0]?.id ||
+      "";
+
     return {
       fromSeason: currentYear,
       toSeason: currentYear + 1,
+      playerTeamFilter: firstTeamWithPlayers,
       teams: teams.map(team => ({
         oldTeamId: team.id,
         carry: true,
         name: team.name,
-        ageGroup: suggestedNextAgeGroup(team.ageGroup),
+        ageGroup: team.ageGroup,
         category: team.category || "Mixed",
         division: team.division || ""
       })),
-      memberships: memberships.map(item => {
-        const player = players.get(item.playerId);
-        const oldTeam = teams.find(team =>
-          team.id === item.teamId
-        );
-
-        return {
-          membershipId: item.id,
-          playerId: item.playerId,
-          playerName: player?.name || "Player",
-          careerGames: Number(player?.careerGames || 0),
-          oldTeamId: item.teamId,
-          oldTeamName: oldTeam?.name || "Team",
-          targetOldTeamId: item.teamId,
-          role: item.role || "additional",
-          number: item.number || ""
-        };
-      })
+      memberships: primaryRows
     };
   };
 
@@ -4960,26 +5006,74 @@ Create a separate player record anyway?`
       .join("");
   };
 
+  const rolloverPrimaryTeamFilterOptions = selectedTeamId => {
+    if (!seasonRolloverDraft) return "";
+
+    return seasonRolloverDraft.teams.map(team => {
+      const count = seasonRolloverDraft.memberships.filter(row =>
+        row.oldTeamId === team.oldTeamId
+      ).length;
+
+      return `
+        <option value="${team.oldTeamId}" ${team.oldTeamId === selectedTeamId ? "selected" : ""}>
+          ${team.ageGroup} • ${team.name} (${count})
+        </option>
+      `;
+    }).join("");
+  };
+
   const renderRolloverMemberships = () => {
     if (!seasonRolloverDraft) return;
 
     const wrap = document.getElementById(
       "rolloverMembershipsList"
     );
-    if (!wrap) return;
+    const filter = document.getElementById(
+      "rolloverPlayerTeamFilter"
+    );
+    const summary = document.getElementById(
+      "rolloverTeamPlayerCount"
+    );
 
-    const rows = [...seasonRolloverDraft.memberships]
+    if (!wrap || !filter) return;
+
+    const validFilter = seasonRolloverDraft.teams.some(team =>
+      team.oldTeamId === seasonRolloverDraft.playerTeamFilter
+    );
+
+    if (!validFilter) {
+      seasonRolloverDraft.playerTeamFilter =
+        seasonRolloverDraft.teams[0]?.oldTeamId || "";
+    }
+
+    filter.innerHTML = rolloverPrimaryTeamFilterOptions(
+      seasonRolloverDraft.playerTeamFilter
+    );
+
+    const rows = seasonRolloverDraft.memberships
+      .filter(row =>
+        row.oldTeamId === seasonRolloverDraft.playerTeamFilter
+      )
       .sort((a, b) =>
-        a.playerName.localeCompare(b.playerName) ||
-        a.oldTeamName.localeCompare(b.oldTeamName)
+        Number(a.number || 999) - Number(b.number || 999) ||
+        a.playerName.localeCompare(b.playerName)
       );
+
+    const selectedTeam = seasonRolloverDraft.teams.find(team =>
+      team.oldTeamId === seasonRolloverDraft.playerTeamFilter
+    );
+
+    if (summary) {
+      summary.textContent =
+        `${rows.length} player${rows.length === 1 ? "" : "s"} whose ${seasonRolloverDraft.fromSeason} Primary Team is ${selectedTeam?.name || "this team"}.`;
+    }
 
     if (!rows.length) {
       wrap.innerHTML = `
         <div class="soft-empty">
           <span>👥</span>
-          <strong>No team memberships to carry forward</strong>
-          <small>You can add players after the new season starts.</small>
+          <strong>No Primary Team players here</strong>
+          <small>Choose another team from the dropdown above.</small>
         </div>
       `;
       return;
@@ -4994,27 +5088,32 @@ Create a separate player record anyway?`
         row.targetOldTeamId = "";
       }
 
+      const priorLinks = (row.priorExtraMemberships || []).length
+        ? `
+          <div class="rollover-prior-links">
+            <strong>${seasonRolloverDraft.fromSeason} cross-team history:</strong>
+            ${(row.priorExtraMemberships || []).map(link =>
+              `${membershipRoleLabel(link.role)} for ${link.ageGroup ? `${link.ageGroup} • ` : ""}${link.teamName}`
+            ).join(" • ")}
+            <br>These links end with Season ${seasonRolloverDraft.fromSeason} and can be re-added by managers next season if needed.
+          </div>
+        `
+        : "";
+
       return `
         <article class="rollover-membership-card">
           <div class="rollover-member-number">${row.number || "—"}</div>
           <div>
             <div class="rollover-membership-heading">
               <strong>${row.playerName}</strong>
-              <small>${row.oldTeamName} • ${membershipRoleLabel(row.role)} • ${row.careerGames} career games</small>
+              <small>${row.oldTeamName} • Primary Team • ${row.careerGames} career games</small>
+              ${priorLinks}
             </div>
 
-            <div class="rollover-membership-fields">
-              <label>Next-season team
+            <div class="rollover-membership-fields clean">
+              <label>Primary Team next season
                 <select data-rollover-member-field="targetOldTeamId" data-rollover-membership-id="${row.membershipId}">
                   ${rolloverTeamTargetOptions(row.targetOldTeamId)}
-                </select>
-              </label>
-
-              <label>Membership
-                <select data-rollover-member-field="role" data-rollover-membership-id="${row.membershipId}">
-                  <option value="primary" ${row.role === "primary" ? "selected" : ""}>Primary Team</option>
-                  <option value="playing_up" ${row.role === "playing_up" ? "selected" : ""}>Playing Up</option>
-                  <option value="additional" ${row.role === "additional" ? "selected" : ""}>Additional Team</option>
                 </select>
               </label>
 
@@ -5024,6 +5123,10 @@ Create a separate player record anyway?`
                   data-rollover-membership-id="${row.membershipId}"
                   value="${row.number || ""}">
               </label>
+
+              <div>
+                <span class="rollover-primary-pill">PRIMARY TEAM</span>
+              </div>
             </div>
           </div>
         </article>
@@ -5033,24 +5136,36 @@ Create a separate player record anyway?`
 
   const rolloverKeptMemberships = () => {
     if (!seasonRolloverDraft) return [];
+
     const activeIds = new Set(
       activeDraftTeams().map(team => team.oldTeamId)
     );
 
-    return seasonRolloverDraft.memberships.filter(row =>
-      row.targetOldTeamId &&
-      activeIds.has(row.targetOldTeamId)
-    );
+    return seasonRolloverDraft.memberships
+      .filter(row =>
+        row.targetOldTeamId &&
+        activeIds.has(row.targetOldTeamId)
+      )
+      .map(row => ({
+        ...row,
+        role: "primary"
+      }));
   };
+
+  const rolloverClearedCrossTeamCount = () =>
+    (seasonRolloverDraft?.memberships || []).reduce(
+      (sum, row) =>
+        sum + Number((row.priorExtraMemberships || []).length),
+      0
+    );
 
   const renderRolloverSummary = () => {
     if (!seasonRolloverDraft) return;
 
     const teams = activeDraftTeams();
     const memberships = rolloverKeptMemberships();
-    const playerCount = new Set(
-      memberships.map(item => item.playerId)
-    ).size;
+    const playerCount = memberships.length;
+    const clearedLinks = rolloverClearedCrossTeamCount();
 
     document.getElementById(
       "rolloverSeasonTitle"
@@ -5060,7 +5175,10 @@ Create a separate player record anyway?`
     document.getElementById(
       "rolloverSummaryText"
     ).textContent =
-      `${teams.length} team${teams.length === 1 ? "" : "s"} and ${playerCount} player${playerCount === 1 ? "" : "s"} will be carried into Season ${seasonRolloverDraft.toSeason}. Career games continue from their current totals.`;
+      `${teams.length} team${teams.length === 1 ? "" : "s"} and ${playerCount} player${playerCount === 1 ? "" : "s"} will be carried into Season ${seasonRolloverDraft.toSeason}. Career games continue from their current totals.` +
+      (clearedLinks
+        ? ` ${clearedLinks} Playing Up / Additional Team link${clearedLinks === 1 ? "" : "s"} will close with Season ${seasonRolloverDraft.fromSeason} and can be re-added later.`
+        : "");
   };
 
   const renderSeasonRollover = () => {
@@ -5135,52 +5253,10 @@ Create a separate player record anyway?`
       }
     }
 
-    const memberships = rolloverKeptMemberships();
-    const seenPlayerTeam = new Set();
-
-    for (const row of memberships) {
-      const key = `${row.playerId}::${row.targetOldTeamId}`;
-      if (seenPlayerTeam.has(key)) {
-        return {
-          ok: false,
-          message:
-            `${row.playerName} is mapped to the same new team more than once. Choose a different team or stop one of those memberships.`
-        };
-      }
-      seenPlayerTeam.add(key);
-    }
-
     return {
       ok: true,
       message: ""
     };
-  };
-
-  const normaliseNewSeasonRoles = rows => {
-    const grouped = new Map();
-
-    rows.forEach(row => {
-      if (!grouped.has(row.playerId)) {
-        grouped.set(row.playerId, []);
-      }
-      grouped.get(row.playerId).push(row);
-    });
-
-    grouped.forEach(playerRows => {
-      const primaries = playerRows.filter(row =>
-        row.role === "primary"
-      );
-
-      if (!primaries.length) {
-        playerRows[0].role = "primary";
-      } else if (primaries.length > 1) {
-        primaries.slice(1).forEach(row => {
-          row.role = "additional";
-        });
-      }
-    });
-
-    return rows;
   };
 
   const completeSeasonRollover = () => {
@@ -5235,14 +5311,11 @@ Create a separate player record anyway?`
       )
     );
 
-    let newMembershipRows = rolloverKeptMemberships()
+    const newMembershipRows = rolloverKeptMemberships()
       .map(row => ({
-        ...deepCopy(row)
+        ...deepCopy(row),
+        role: "primary"
       }));
-
-    newMembershipRows = normaliseNewSeasonRoles(
-      newMembershipRows
-    );
 
     const existingMemberships = getMemberships().filter(
       item => !oldTeamIds.has(item.teamId)
@@ -5259,7 +5332,7 @@ Create a separate player record anyway?`
             `membership_${now}_${index}_${row.playerId}`,
           playerId: row.playerId,
           teamId: team.id,
-          role: row.role,
+          role: "primary",
           number: row.number || "",
           status: "active",
           season: nextYear,
@@ -5585,6 +5658,17 @@ Create a separate player record anyway?`
     openSeasonArchiveId = null;
     renderClubSeasons();
     showScreen("clubSeasonsScreen");
+  });
+
+  document.getElementById(
+    "rolloverPlayerTeamFilter"
+  )?.addEventListener("change", event => {
+    if (!seasonRolloverDraft) return;
+
+    seasonRolloverDraft.playerTeamFilter =
+      event.target.value;
+
+    renderRolloverMemberships();
   });
 
   document.getElementById(

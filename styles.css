@@ -1660,3 +1660,66 @@ input:focus,select:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(244,
     grid-template-columns:1fr
   }
 }
+
+
+/* V2.16.1 Clean season rollover */
+.season-clean-start-note{
+  display:grid;
+  gap:4px;
+  margin:10px 0 14px;
+  padding:11px 12px;
+  border:1px solid #F1D179;
+  border-radius:12px;
+  background:var(--gold-soft)
+}
+.season-clean-start-note strong{
+  color:var(--navy);
+  font-size:11px
+}
+.season-clean-start-note span{
+  color:var(--muted);
+  font-size:10px;
+  line-height:1.45
+}
+.rollover-team-filter-label{
+  display:block;
+  max-width:520px;
+  margin:0 0 8px
+}
+.rollover-filter-summary{
+  margin:6px 0 12px;
+  color:var(--muted);
+  font-size:10px;
+  font-weight:800
+}
+.rollover-prior-links{
+  margin-top:7px;
+  padding:8px 9px;
+  border-radius:10px;
+  background:#FFF9E8;
+  border:1px solid #F1D179;
+  color:var(--muted);
+  font-size:9px;
+  line-height:1.45
+}
+.rollover-prior-links strong{color:var(--navy)}
+.rollover-primary-pill{
+  display:inline-flex;
+  align-items:center;
+  padding:6px 8px;
+  border-radius:999px;
+  border:1px solid #B9DDC9;
+  background:#EFFAF4;
+  color:#087A3F;
+  font-size:9px;
+  font-weight:900
+}
+.rollover-membership-fields.clean{
+  grid-template-columns:1.6fr .6fr auto;
+  align-items:end
+}
+@media(max-width:760px){
+  .rollover-membership-fields.clean{
+    grid-template-columns:1fr
+  }
+}
